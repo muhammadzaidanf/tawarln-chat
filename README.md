@@ -1,36 +1,28 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🤖 Tawarln AI
 
-## Getting Started
+**Tawarln AI** is a modern, feature-rich AI Chat Assistant built to provide a seamless conversational experience. Powered by **Next.js 14**, **Supabase**, and **Kolosal AI**, it bridges the gap between powerful LLMs and user-friendly interface.
 
-First, run the development server:
+![Tawarln AI Preview](public/icon.png) ## 🚀 Features
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- **🧠 Multi-Model Support**: Switch between Claude 3.5 Sonnet, Llama 3, Qwen, and more instantly.
+- **👁️ Computer Vision**: Upload images and let the AI analyze, describe, or extract code from them.
+- **⚡ Streaming Response**: Real-time typing effect for a smooth conversational flow.
+- **☁️ Cloud Sync**: Never lose your chats. Sign in with Google to sync history across devices (Laptop & Mobile).
+- **🎨 Modern UI**: Clean, dark-mode interface built with Tailwind CSS.
+- **🔒 Secure**: Enterprise-grade authentication via Supabase Auth (RLS enabled).
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 🛠️ Tech Stack
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Framework**: [Next.js 14](https://nextjs.org/) (App Router)
+- **Styling**: [Tailwind CSS](https://tailwindcss.com/)
+- **Database & Auth**: [Supabase](https://supabase.com/)
+- **AI Provider**: [Kolosal AI](https://kolosal.ai/) / OpenAI Compatible API
+- **Deployment**: [Vercel](https://vercel.com/)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 📸 Screenshots
 
-## Learn More
+*(Tambahin screenshot web lu di sini nanti biar keren)*
 
-To learn more about Next.js, take a look at the following resources:
+## 👨‍💻 Developed By
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+**Muhammad Zaidan Faiz** *Zaidan Capital*
