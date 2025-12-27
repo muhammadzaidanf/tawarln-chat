@@ -24,7 +24,8 @@
 
 ## 📸 Screenshots
 
-(public/sc.png) 
+![Tawarln AI Web SS](public/SC.png) 
+![Tawarln AI Web SS](public/SC-mobile.png) 
 
 ## 👨‍💻 Developed By
 
