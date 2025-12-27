@@ -2,7 +2,7 @@
 
 **Tawarln AI** is a modern, feature-rich AI Chat Assistant built to provide a seamless conversational experience. Powered by **Next.js 14**, **Supabase**, and **Kolosal AI**, it bridges the gap between powerful LLMs and user-friendly interface.
 
-![Tawarln AI Preview](public/icon.png) ## 🚀 Features
+![Tawarln AI Preview](public/logo.png) ## 🚀 Features
 
 - **🧠 Multi-Model Support**: Switch between Claude 3.5 Sonnet, Llama 3, Qwen, and more instantly.
 - **👁️ Computer Vision**: Upload images and let the AI analyze, describe, or extract code from them.
