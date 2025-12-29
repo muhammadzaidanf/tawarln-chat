@@ -1,17 +1,17 @@
 'use client';
 import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation'; // ✅ INI KUNCINYA
 import { supabase } from '../../supabaseClient'; 
 import ReactMarkdown from 'react-markdown';
 import { Bot, User, AlertTriangle } from 'lucide-react';
 
-// --- TIPE DATA STRICT (NO ANY) ---
+// --- TIPE DATA ---
 type VisionItem = {
     type: 'text' | 'image_url';
     text?: string;
     image_url?: { url: string };
 };
 
-// Content bisa berupa String biasa atau Array Vision (Gambar+Text)
 type MessageContent = string | VisionItem[];
 
 interface Message {
@@ -26,47 +26,56 @@ interface SharedChatData {
     is_shared: boolean;
 }
 
-export default function SharedChat({ params }: { params: { id: string } }) {
+export default function SharedChat() { // ❌ Gak usah terima props params lagi
+    const params = useParams(); // ✅ Ambil ID pake Hook ini (Lebih stabil)
+    const id = params?.id as string; // Pastikan jadi string
+
     const [chat, setChat] = useState<SharedChatData | null>(null);
     const [loading, setLoading] = useState(true);
     const [debugError, setDebugError] = useState<string | null>(null);
 
     useEffect(() => {
+        if (!id) return; // Tunggu sampe ID kebaca
+
         const fetchChat = async () => {
-            console.log("Mencari ID:", params.id);
+            console.log("Mencari ID:", id);
             
-            // Menggunakan .maybeSingle() agar tidak error jika data kosong
+            // Pake .maybeSingle() biar gak error 406
             const { data, error } = await supabase
                 .from('chats')
                 .select('*')
-                .eq('id', params.id)
+                .eq('id', id)
                 .maybeSingle(); 
 
             if (error) {
                 console.error("Supabase Error:", error);
                 setDebugError(error.message);
             } else if (!data) {
-                // Jika data null, berarti ID tidak ditemukan di database
-                setDebugError("Chat HILANG / BELUM DISYNC ke Database. Pastikan ID benar atau coba buat chat baru.");
+                setDebugError("Chat TIDAK DITEMUKAN di Database. ID mungkin salah atau belum tersimpan.");
             } else {
-                // Data ditemukan, casting ke tipe data kita
                 const chatData = data as SharedChatData;
-
-                // Cek status is_shared
                 if (!chatData.is_shared) {
-                    setDebugError("Chat ADA, tapi status 'is_shared' masih FALSE (Private). Minta pemilik chat untuk membagikan ulang.");
+                    setDebugError("Chat ADA, tapi status 'is_shared' FALSE (Privasi tertutup).");
                 } else {
                     setChat(chatData);
                 }
             }
             setLoading(false);
         };
+
         fetchChat();
-    }, [params.id]);
+    }, [id]);
 
-    if (loading) return <div className="p-10 text-center animate-pulse text-zinc-500">Lagi nyari data...</div>;
+    if (loading) return (
+        <div className="flex h-screen items-center justify-center bg-white dark:bg-[#09090b] text-zinc-500">
+            <div className="animate-pulse flex flex-col items-center">
+                <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
+                Loading ID: {id}...
+            </div>
+        </div>
+    );
 
-    // TAMPILAN ERROR JIKA ADA (DEBUG MODE)
+    // --- TAMPILAN ERROR ---
     if (!chat) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-white dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100">
@@ -74,18 +83,18 @@ export default function SharedChat({ params }: { params: { id: string } }) {
                     <AlertTriangle size={32} />
                 </div>
                 <h2 className="text-xl font-bold mb-2">Gagal Memuat Chat</h2>
-                <p className="text-zinc-500 mb-6">Ada masalah saat mengambil data.</p>
                 
-                {/* KOTAK ERROR DIAGNOSA */}
-                <div className="bg-zinc-100 dark:bg-zinc-900 p-4 rounded-lg max-w-md w-full text-left font-mono text-xs border border-zinc-200 dark:border-zinc-800 overflow-x-auto">
+                {/* KOTAK DEBUG */}
+                <div className="bg-zinc-100 dark:bg-zinc-900 p-4 rounded-lg max-w-md w-full text-left font-mono text-xs border border-zinc-200 dark:border-zinc-800">
                     <p className="font-bold text-zinc-400 mb-2 border-b pb-1">DEBUG INFO:</p>
-                    <p className="mb-1">ID URL: <span className="text-blue-500">{params.id}</span></p>
-                    <p>Status: <span className="text-red-500 font-bold">{debugError || "Unknown Error"}</span></p>
+                    <p>URL ID: <span className="text-blue-500">{id || "UNDEFINED (Gak Kebaca)"}</span></p>
+                    <p>Status: <span className="text-red-500">{debugError}</span></p>
                 </div>
             </div>
         );
     }
 
+    // --- TAMPILAN CHAT SUKSES ---
     return (
         <div className="max-w-3xl mx-auto p-6 font-sans min-h-screen bg-white dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100">
             <h1 className="text-2xl font-bold mb-8 border-b border-zinc-200 dark:border-zinc-800 pb-4">{chat.title}</h1>
