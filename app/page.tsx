@@ -12,7 +12,7 @@ import {
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
   Gamepad2, Plane, Code2, Lightbulb,
-  Share2, Sparkle, PanelLeftClose, PanelLeftOpen, Command
+  Eye, Code, Share2, Sparkle, PanelLeftClose, PanelLeftOpen, Command
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
@@ -80,6 +80,7 @@ interface CodeProps extends ComponentPropsWithoutRef<'code'> { inline?: boolean;
 const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   const [isCopied, setIsCopied] = useState(false);
   const [mode, setMode] = useState<'code' | 'preview'>('code'); 
+  
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : 'text';
   const codeContent = String(children).replace(/\n$/, '');
@@ -92,6 +93,7 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   };
 
   if (inline) return <code className="bg-zinc-200 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
+  
   const isHtml = language === 'html' || language === 'xml';
 
   return (
@@ -101,12 +103,22 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
           <span className="font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase">{language}</span>
           {isHtml && (
             <div className="flex bg-zinc-200 dark:bg-zinc-800 rounded p-0.5 ml-2">
-                <button onClick={() => setMode('code')} className={`px-2 py-0.5 rounded ${mode === 'code' ? 'bg-white dark:bg-zinc-700 shadow-sm' : 'text-zinc-500'}`}>Code</button>
-                <button onClick={() => setMode('preview')} className={`px-2 py-0.5 rounded ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 shadow-sm' : 'text-zinc-500'}`}>Preview</button>
+                <button 
+                  onClick={() => setMode('code')} 
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'code' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                    <Code size={12} /> Code
+                </button>
+                <button 
+                  onClick={() => setMode('preview')} 
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
+                    <Eye size={12} /> Preview
+                </button>
             </div>
           )}
         </div>
-        <button onClick={handleCopy} className="flex items-center gap-1 hover:text-black dark:hover:text-white">
+        <button onClick={handleCopy} className="flex items-center gap-1 hover:text-black dark:hover:text-white transition-colors">
           {isCopied ? <Check size={14} /> : <Copy size={14} />} {isCopied ? 'Copied' : 'Copy'}
         </button>
       </div>
@@ -121,7 +133,6 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   );
 };
 
-// --- MAIN PAGE ---
 export default function Home() {
   const [user, setUser] = useState<User | null>(null); 
   const [authLoading, setAuthLoading] = useState(true);
@@ -222,10 +233,9 @@ export default function Home() {
           
           toast.dismiss(toastId);
           toast.success('Public link copied to clipboard');
-      } catch (err) {
+      } catch {
           toast.dismiss(toastId);
           toast.error('Failed to create link');
-          console.error(err);
       }
   };
 
@@ -270,14 +280,13 @@ export default function Home() {
 
     const fetchChats = async () => {
       setIsSyncing(true);
-      
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('chats')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
+      if (data) {
         const loadedSessions: ChatSession[] = (data as DatabaseChat[]).map((row) => ({ 
             id: row.id, 
             title: row.title, 
@@ -303,7 +312,7 @@ export default function Home() {
 
   useEffect(() => { localStorage.setItem('tawarln_settings', JSON.stringify({ systemPrompt, temperature })); }, [systemPrompt, temperature]);
   
-  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [currentMessages, attachment]);
+  useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [currentMessages, attachment, loading]);
 
   const extractTextFromPdf = async (data: ArrayBuffer): Promise<string> => {
     const pdfjsLib = await import('pdfjs-dist');
@@ -403,10 +412,19 @@ export default function Home() {
     else { toast.error('Cannot edit image messages'); }
   };
 
+  const handleStop = () => {
+    if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        setLoading(false);
+        toast.info("Stopped generation");
+    }
+  };
+
   const handleStreamingResponse = async (payload: ChatPayload, sessionId: string) => {
     setLoading(true);
     abortControllerRef.current = new AbortController();
     
+    // Add placeholder bot message immediately to prevent jumping
     const initialBotMsg: Message = { role: 'assistant', content: '' };
     setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...s.messages, initialBotMsg] } : s));
 
@@ -448,7 +466,7 @@ export default function Home() {
       });
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
-        toast.info('Stopped.');
+        // Handled by handleStop toast
       } else {
         toast.error('Error generating response.');
       }
@@ -503,8 +521,6 @@ export default function Home() {
     await handleStreamingResponse({ messages: payload, model: selectedModel, systemPrompt, temperature, webSearch: isWebSearchActive }, currentSessionId);
   };
 
-  const handleStop = () => abortControllerRef.current?.abort();
-  
   const renderMessageContent = (content: MessageContent) => {
     if (typeof content === 'string') return <ReactMarkdown components={{ code: CodeBlock }}>{content}</ReactMarkdown>;
     return (
@@ -532,7 +548,7 @@ export default function Home() {
         <div className="w-full max-w-sm bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 shadow-2xl text-center">
           <div className="flex justify-center mb-8">
             <div className="w-24 h-24 bg-zinc-800/80 rounded-2xl flex items-center justify-center shadow-lg border border-zinc-700/50 p-5 ring-4 ring-zinc-800/30">
-              <Image src="/logo.png" alt="Tawarln Logo" width={80} height={80} className="w-full h-full object-contain" />
+              <Command size={48} className="text-white" />
             </div>
           </div>
           <h1 className="text-3xl font-bold mb-3 tracking-tight bg-gradient-to-b from-white to-zinc-400 text-transparent bg-clip-text">Tawarln AI</h1>
@@ -682,7 +698,7 @@ export default function Home() {
         <header className={`flex items-center justify-between px-6 py-4 z-[30] backdrop-blur-md absolute top-0 w-full ${theme === 'dark' ? 'bg-zinc-950/80' : 'bg-white/80'}`}>
           <div className="flex items-center gap-2">
             
-            {/* TOGGLE BUTTON: Always visible */}
+            {/* TOGGLE BUTTON */}
             <button 
                 onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
                 className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'}`}
@@ -745,67 +761,68 @@ export default function Home() {
                 </div>
             )}
             
-            {currentMessages.map((msg, index) => (
-              <div key={index} className={`group py-6 ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
-                {msg.role === 'user' ? (
-                    <div className="flex gap-3 max-w-[80%] flex-row-reverse">
-                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0 text-white">
-                            <UserIcon size={16} />
-                        </div>
-                        <div className="px-5 py-3 rounded-2xl bg-blue-600 text-white rounded-tr-sm">
-                            <div className="prose prose-invert prose-sm max-w-none text-[15px] leading-7">
-                                {renderMessageContent(msg.content)}
+            <div className="flex flex-col space-y-6">
+                {currentMessages.map((msg, index) => (
+                <div key={index} className={`group ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
+                    {msg.role === 'user' ? (
+                        <div className="flex gap-3 max-w-[80%] flex-row-reverse">
+                            <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                                <UserIcon size={16} className="text-zinc-600 dark:text-zinc-400" />
                             </div>
-                            {!editingMessageIndex && (
-                                <div className="flex items-center justify-end gap-2 mt-2 opacity-0 group-hover:opacity-50 transition-opacity">
-                                    <button onClick={() => startEditMessage(index, msg.content as string)} className="p-1 hover:bg-white/10 rounded"><Edit2 size={12} /></button>
+                            <div className={`px-5 py-3 rounded-2xl ${theme === 'dark' ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-800'}`}>
+                                <div className="prose dark:prose-invert prose-sm max-w-none text-[15px] leading-7">
+                                    {renderMessageContent(msg.content)}
                                 </div>
-                            )}
-                        </div>
-                    </div>
-                ) : (
-                    <div className="flex gap-4 md:gap-6 max-w-3xl">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 mt-1">
-                            <Bot size={18} className="text-white" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                            <div className="font-semibold text-sm mb-2 opacity-90 flex items-center gap-2">
-                                Tawarln 
-                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">AI</span>
-                            </div>
-                            <div className={`prose max-w-none text-[15px] leading-7 ${theme === 'dark' ? 'prose-invert prose-p:text-zinc-300 prose-headings:text-zinc-100' : 'prose-zinc prose-p:text-zinc-700'}`}>
-                                {renderMessageContent(msg.content)}
-                            </div>
-                            <div className="flex items-center gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={() => copyMessage(typeof msg.content === 'string' ? msg.content : 'Image content')} className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><Copy size={12} /> Copy</button>
+                                {!editingMessageIndex && (
+                                    <div className="flex items-center justify-end gap-2 mt-2 opacity-0 group-hover:opacity-50 transition-opacity">
+                                        <button onClick={() => startEditMessage(index, msg.content as string)} className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><Edit2 size={12} /></button>
+                                    </div>
+                                )}
                             </div>
                         </div>
-                    </div>
-                )}
-                
-                {editingMessageIndex === index && (
-                    <div className="mt-2 w-full max-w-3xl mx-auto border rounded-xl p-4 shadow-lg bg-white dark:bg-zinc-900 border-blue-500/50">
-                        <TextareaAutosize value={editingMessageText} onChange={(e) => setEditingMessageText(e.target.value)} className="w-full bg-transparent border-none focus:ring-0 resize-none mb-3 text-zinc-900 dark:text-zinc-100" />
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => setEditingMessageIndex(null)} className="px-4 py-2 text-xs bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:opacity-80">Cancel</button>
-                            <button onClick={saveEditAndRegenerate} className="px-4 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save & Regenerate</button>
+                    ) : (
+                        <div className="flex gap-4 md:gap-6 max-w-3xl">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 mt-1">
+                                <Bot size={18} className="text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <div className="font-semibold text-sm mb-2 opacity-90 flex items-center gap-2">
+                                    Tawarln 
+                                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">AI</span>
+                                </div>
+                                <div className={`prose max-w-none text-[15px] leading-7 ${theme === 'dark' ? 'prose-invert prose-p:text-zinc-300 prose-headings:text-zinc-100' : 'prose-zinc prose-p:text-zinc-700'}`}>
+                                    {renderMessageContent(msg.content)}
+                                    {/* INDICATOR LOADING PADA PESAN TERAKHIR AI */}
+                                    {index === currentMessages.length - 1 && loading && !msg.content && (
+                                        <div className="flex items-center gap-1 mt-2">
+                                            <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></div>
+                                            <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-150"></div>
+                                            <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-300"></div>
+                                            {/* TOMBOL STOP LOADING */}
+                                            <button onClick={handleStop} className="ml-4 text-xs text-zinc-400 hover:text-red-500 transition-colors">Stop</button>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex items-center gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    <button onClick={() => copyMessage(typeof msg.content === 'string' ? msg.content : 'Image content')} className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><Copy size={12} /> Copy</button>
+                                </div>
+                            </div>
                         </div>
-                    </div>
-                )}
-              </div>
-            ))}
-
-            {loading && (
-                <div className="py-6 flex gap-6">
-                    <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white shrink-0"><Bot size={18} /></div>
-                    <div className="flex items-center gap-1 mt-2">
-                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></div>
-                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-150"></div>
-                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-300"></div>
-                        <button onClick={handleStop} className="ml-6 text-xs text-zinc-400 hover:text-red-500 transition-colors">Stop</button>
-                    </div>
+                    )}
+                    
+                    {editingMessageIndex === index && (
+                        <div className="mt-2 w-full max-w-3xl mx-auto border rounded-xl p-4 shadow-lg bg-white dark:bg-zinc-900 border-blue-500/50">
+                            <TextareaAutosize value={editingMessageText} onChange={(e) => setEditingMessageText(e.target.value)} className="w-full bg-transparent border-none focus:ring-0 resize-none mb-3 text-zinc-900 dark:text-zinc-100" />
+                            <div className="flex justify-end gap-2">
+                                <button onClick={() => setEditingMessageIndex(null)} className="px-4 py-2 text-xs bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:opacity-80">Cancel</button>
+                                <button onClick={saveEditAndRegenerate} className="px-4 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save & Regenerate</button>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
+                ))}
+            </div>
+
             <div ref={messagesEndRef} className="h-4" />
         </div></div>
 
