@@ -11,35 +11,35 @@ import {
   X, FileCode, Pencil, MoreHorizontal, Sliders, LogOut, 
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
-  Gamepad2, Plane, Music, Code2, HeartPulse, Lightbulb,
-  Eye, Code, Share2
+  Gamepad2, Plane, Code2, Lightbulb,
+  Eye, Code, Share2, Sparkle
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
 import { User } from '@supabase/supabase-js';
 
+// --- CONSTANTS ---
 const MODELS = [
-  { id: 'Claude Sonnet 4.5', name: 'Claude 4.5 Sonnet', desc: 'Best for Vision & Code' },
-  { id: 'GLM 4.6', name: 'GLM 4.6', desc: 'Balanced' },
-  { id: 'Kimi K2', name: 'Kimi K2', desc: 'Creative' },
-  { id: 'Llama 4 Maverick', name: 'Llama 4', desc: 'Fastest' },
-  { id: 'MiniMax M2', name: 'MiniMax M2', desc: 'General Purpose' },
-  { id: 'Qwen 3 30BA3B', name: 'Qwen 3', desc: 'Smart Logic' },
+  { id: 'Claude Sonnet 4.5', name: 'Claude 4.5 Sonnet', desc: 'Superior Reasoning & Code' },
+  { id: 'GLM 4.6', name: 'GLM 4.6', desc: 'Balanced Performance' },
+  { id: 'Kimi K2', name: 'Kimi K2', desc: 'Creative Writing' },
+  { id: 'Llama 4 Maverick', name: 'Llama 4', desc: 'High Speed' },
+  { id: 'MiniMax M2', name: 'MiniMax M2', desc: 'General Assistant' },
+  { id: 'Qwen 3 30BA3B', name: 'Qwen 3', desc: 'Complex Logic' },
 ];
 
 const ALL_SUGGESTIONS = [
-  { icon: <Terminal size={18} />, text: "Buatin script Python buat login", label: "Coding" },
-  { icon: <Sparkles size={18} />, text: "Analisa gambar yang gw upload", label: "Vision" },
-  { icon: <BookOpen size={18} />, text: "Jelaskan isi file code ini", label: "Analysis" },
-  { icon: <Coffee size={18} />, text: "Resep masakan dari bahan sisa", label: "Lifestyle" },
-  { icon: <Gamepad2 size={18} />, text: "Ide nama nickname game keren", label: "Gaming" },
-  { icon: <Plane size={18} />, text: "Itinerary liburan ke Bali 3 hari", label: "Travel" },
-  { icon: <Code2 size={18} />, text: "Debug error React useEffect", label: "Programming" },
-  { icon: <Music size={18} />, text: "Rekomendasi lagu buat kerja", label: "Music" },
-  { icon: <HeartPulse size={18} />, text: "Tips tidur cepat dan nyenyak", label: "Health" },
-  { icon: <Lightbulb size={18} />, text: "Ide startup berbasis AI", label: "Business" },
+  { icon: <Terminal size={16} />, text: "Script Python login system", label: "Coding" },
+  { icon: <Sparkles size={16} />, text: "Analisa gambar arsitektur", label: "Vision" },
+  { icon: <BookOpen size={16} />, text: "Jelaskan konsep Quantum Physics", label: "Science" },
+  { icon: <Coffee size={16} />, text: "Resep pasta simple 15 menit", label: "Lifestyle" },
+  { icon: <Plane size={16} />, text: "Itinerary Jepang 7 hari", label: "Travel" },
+  { icon: <Code2 size={16} />, text: "Debug error React Hydration", label: "Programming" },
+  { icon: <Lightbulb size={16} />, text: "Ide bisnis SaaS B2B", label: "Business" },
+  { icon: <Gamepad2 size={16} />, text: "Lore Elden Ring explained", label: "Gaming" },
 ];
 
+// --- TYPES ---
 type VisionItem = { type: 'text' | 'image_url'; text?: string; image_url?: { url: string } };
 type VisionContent = Array<VisionItem>;
 type MessageContent = string | VisionContent;
@@ -74,6 +74,8 @@ interface TextItem {
   str: string;
 }
 
+// --- COMPONENTS ---
+
 interface CodeProps extends ComponentPropsWithoutRef<'code'> { inline?: boolean; }
 
 const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
@@ -87,31 +89,31 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   const handleCopy = () => {
     navigator.clipboard.writeText(codeContent);
     setIsCopied(true);
-    toast.success('Code copied!');
+    toast.success('Code copied to clipboard');
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  if (inline) return <code className="bg-zinc-100 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
+  if (inline) return <code className="bg-zinc-100 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-md text-sm font-mono" {...props}>{children}</code>;
 
   const isHtml = language === 'html' || language === 'xml';
 
   return (
-    <div className="relative my-4 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121214] shadow-sm group">
-      <div className="flex justify-between items-center bg-zinc-100 dark:bg-zinc-900/50 px-4 py-2 text-xs text-zinc-500 dark:text-zinc-400 select-none border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex gap-2 items-center">
-          <span className="uppercase font-semibold tracking-wider font-mono text-blue-500 dark:text-blue-400 py-1">{language}</span>
+    <div className="relative my-6 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121214] shadow-sm group">
+      <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50 px-4 py-2.5 text-xs text-zinc-500 dark:text-zinc-400 select-none border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex gap-3 items-center">
+          <span className="uppercase font-bold tracking-wider font-mono text-zinc-600 dark:text-zinc-400">{language}</span>
           
           {isHtml && (
             <div className="flex bg-zinc-200 dark:bg-zinc-800 rounded-md p-0.5 ml-2">
                 <button 
                   onClick={() => setMode('code')} 
-                  className={`px-2 py-0.5 rounded flex items-center gap-1 transition-all ${mode === 'code' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-500'}`}
+                  className={`px-2 py-0.5 rounded flex items-center gap-1.5 transition-all ${mode === 'code' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-500'}`}
                 >
                     <Code size={12}/> Code
                 </button>
                 <button 
                   onClick={() => setMode('preview')} 
-                  className={`px-2 py-0.5 rounded flex items-center gap-1 transition-all ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-500'}`}
+                  className={`px-2 py-0.5 rounded flex items-center gap-1.5 transition-all ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-500'}`}
                 >
                     <Eye size={12}/> Preview
                 </button>
@@ -127,7 +129,7 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
 
       <div className="relative">
         {mode === 'code' ? (
-             <div className="p-4 overflow-x-auto text-sm">
+             <div className="p-4 overflow-x-auto text-sm font-mono leading-relaxed">
                 <code className={`!bg-transparent ${className}`} {...props}>{children}</code>
              </div>
         ) : (
@@ -145,6 +147,7 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   );
 };
 
+// --- APP ---
 export default function Home() {
   const [user, setUser] = useState<User | null>(null); 
   const [authLoading, setAuthLoading] = useState(true);
@@ -230,7 +233,7 @@ export default function Home() {
 
   const handleShareChat = async (session: ChatSession) => {
       if (!user) return;
-      const toastId = toast.loading('Generating share link...');
+      const toastId = toast.loading('Creating shareable link...');
       
       try {
           const { error } = await supabase
@@ -244,10 +247,10 @@ export default function Home() {
           await navigator.clipboard.writeText(shareUrl);
           
           toast.dismiss(toastId);
-          toast.success('Link copied to clipboard!');
+          toast.success('Public link copied to clipboard');
       } catch (err) {
           toast.dismiss(toastId);
-          toast.error('Failed to create share link.');
+          toast.error('Failed to create link');
           console.error(err);
       }
   };
@@ -257,7 +260,7 @@ export default function Home() {
         const sess = sessions.find(s => s.id === currentSessionId);
         if (sess?.model) setSelectedModel(sess.model);
     }
-  }, [currentSessionId, sessions]); // ✅ Added sessions dependency
+  }, [currentSessionId, sessions]);
 
   const handleModelChange = (newModelId: string) => {
     setSelectedModel(newModelId); 
@@ -471,9 +474,9 @@ export default function Home() {
       });
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
-        toast.info('Stopped.');
+        toast.info('Streaming stopped');
       } else {
-        toast.error('Error generating response.');
+        toast.error('Connection error');
       }
     } finally { setLoading(false); abortControllerRef.current = null; }
   };
@@ -547,19 +550,20 @@ export default function Home() {
   const closeAllMenus = () => { setActiveMenuId(null); setIsModelMenuOpen(false); setIsProfileMenuOpen(false); setIsDeleteModalOpen(false); };
   const toggleMenu = (id: string) => setActiveMenuId(activeMenuId === id ? null : id);
 
-  if (authLoading) return <div className={`flex h-screen items-center justify-center ${theme === 'dark' ? 'bg-[#09090b] text-white' : 'bg-white text-zinc-900'}`}>Loading...</div>;
+  if (authLoading) return <div className={`flex h-screen items-center justify-center ${theme === 'dark' ? 'bg-zinc-950 text-white' : 'bg-white text-zinc-900'}`}>Loading...</div>;
 
   if (!user) return (
-      <div className="flex h-screen items-center justify-center bg-[#09090b] text-white p-4">
-        <div className="w-full max-w-md bg-[#18181b] border border-zinc-800 rounded-2xl p-8 shadow-2xl text-center">
-          <div className="flex justify-center mb-6">
-            <div className="w-20 h-20 bg-zinc-800/50 rounded-2xl flex items-center justify-center shadow-lg border border-zinc-700/50 p-4">
+      <div className="flex h-screen items-center justify-center bg-zinc-950 text-white p-6 relative overflow-hidden">
+        <div className="absolute inset-0 bg-grid-white/[0.02] -z-10" />
+        <div className="w-full max-w-sm bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 shadow-2xl text-center">
+          <div className="flex justify-center mb-8">
+            <div className="w-24 h-24 bg-zinc-800/80 rounded-2xl flex items-center justify-center shadow-lg border border-zinc-700/50 p-5 ring-4 ring-zinc-800/30">
               <Image src="/logo.png" alt="Tawarln Logo" width={80} height={80} className="w-full h-full object-contain" />
             </div>
           </div>
-          <h1 className="text-2xl font-bold mb-2">Welcome to Tawarln</h1>
-          <p className="text-zinc-400 mb-8 text-sm">Sign in to sync your history across devices.</p>
-          <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white text-black font-semibold py-3 rounded-xl hover:bg-zinc-200 transition-all active:scale-95">
+          <h1 className="text-3xl font-bold mb-3 tracking-tight bg-gradient-to-b from-white to-zinc-400 text-transparent bg-clip-text">Tawarln AI</h1>
+          <p className="text-zinc-400 mb-8 text-sm leading-relaxed">Your intelligent companion for coding, creativity, and daily tasks.</p>
+          <button onClick={handleLogin} className="w-full flex items-center justify-center gap-3 bg-white text-zinc-950 font-semibold py-3.5 rounded-xl hover:bg-zinc-200 transition-all active:scale-[0.98] shadow-lg shadow-white/5">
             <ShieldCheck size={20} /> Continue with Google
           </button>
         </div>
@@ -567,22 +571,22 @@ export default function Home() {
     );
 
   return (
-    <div className={`flex h-[100dvh] font-sans overflow-hidden ${theme === 'dark' ? 'bg-[#09090b] text-zinc-100' : 'bg-white text-zinc-900'}`}>
+    <div className={`flex h-[100dvh] font-sans overflow-hidden transition-colors duration-300 ${theme === 'dark' ? 'bg-zinc-950 text-zinc-100' : 'bg-white text-zinc-900'}`}>
       <Toaster position="top-center" theme={theme} />
       <input type="file" ref={fileInputRef} className="hidden" onChange={handleFileSelect} accept="image/*,.pdf,.txt,.js,.py" />
 
       {(activeMenuId || isModelMenuOpen || isProfileMenuOpen || isDeleteModalOpen) && <div className="fixed inset-0 z-[25]" onClick={closeAllMenus} />}
 
       {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className={`border rounded-2xl w-full max-w-sm p-6 shadow-2xl relative scale-100 ${theme === 'dark' ? 'bg-[#18181b] border-zinc-800' : 'bg-white border-zinc-200'}`}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className={`border rounded-3xl w-full max-w-sm p-6 shadow-2xl relative scale-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
                 <div className="flex flex-col items-center text-center">
-                    <div className="w-12 h-12 bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500"><AlertTriangle size={24} /></div>
-                    <h3 className="text-lg font-bold mb-1">Delete Chat?</h3>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-6">This action cannot be undone.</p>
+                    <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500"><AlertTriangle size={28} /></div>
+                    <h3 className="text-lg font-bold mb-2">Delete Conversation?</h3>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 px-4">This action cannot be undone. The chat history will be permanently removed.</p>
                     <div className="flex gap-3 w-full">
-                        <button onClick={() => setIsDeleteModalOpen(false)} className={`flex-1 py-2.5 rounded-xl text-sm font-medium ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'}`}>Cancel</button>
-                        <button onClick={executeDeleteChat} className="flex-1 py-2.5 rounded-xl text-sm font-medium bg-red-600 hover:bg-red-700 text-white">Delete</button>
+                        <button onClick={() => setIsDeleteModalOpen(false)} className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'}`}>Cancel</button>
+                        <button onClick={executeDeleteChat} className="flex-1 py-3 rounded-xl text-sm font-medium bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20">Delete</button>
                     </div>
                 </div>
             </div>
@@ -590,120 +594,146 @@ export default function Home() {
       )}
 
       {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className={`border rounded-2xl w-full max-w-md p-6 relative ${theme === 'dark' ? 'bg-[#18181b] border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                <button onClick={() => setIsSettingsOpen(false)} className="absolute top-4 right-4 text-zinc-400 hover:text-red-500"><X size={20} /></button>
-                <h2 className="text-xl font-bold mb-1 flex items-center gap-2"><Sliders size={20} className="text-blue-500"/> Settings</h2>
-                <div className="space-y-4 mt-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className={`border rounded-3xl w-full max-w-md p-6 relative shadow-2xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold flex items-center gap-2"><Sliders size={20} className="text-blue-500"/> Preferences</h2>
+                    <button onClick={() => setIsSettingsOpen(false)} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X size={20} className="text-zinc-500"/></button>
+                </div>
+                
+                <div className="space-y-6">
                     <div>
-                      <label className="text-xs font-medium uppercase text-zinc-500 mb-2 block">System Instructions</label>
-                      <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className={`w-full h-32 border rounded-xl p-3 text-sm focus:ring-1 focus:ring-blue-500 outline-none resize-none ${theme === 'dark' ? 'bg-black/50 border-zinc-700 text-zinc-200' : 'bg-zinc-50 border-zinc-200 text-zinc-900'}`} placeholder="How should Tawarln behave?" />
+                      <label className="text-xs font-semibold uppercase text-zinc-500 mb-2 block tracking-wider">System Instructions</label>
+                      <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className={`w-full h-32 border rounded-2xl p-4 text-sm focus:ring-2 focus:ring-blue-500 outline-none resize-none transition-all ${theme === 'dark' ? 'bg-black/40 border-zinc-800 text-zinc-200 focus:border-blue-500/50' : 'bg-zinc-50 border-zinc-200 text-zinc-900'}`} placeholder="How should Tawarln behave?" />
                     </div>
                     <div>
-                      <label className="text-xs font-medium uppercase text-zinc-500 mb-2 block flex justify-between"><span>Creativity</span> <span>{temperature}</span></label>
-                      <input type="range" min="0" max="1" step="0.1" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full h-2 accent-blue-500 rounded-lg cursor-pointer bg-zinc-200 dark:bg-zinc-700 appearance-none" />
+                      <label className="text-xs font-semibold uppercase text-zinc-500 mb-4 block flex justify-between tracking-wider"><span>Creativity Level</span> <span className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded text-[10px]">{temperature}</span></label>
+                      <input type="range" min="0" max="1" step="0.1" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full h-2 accent-blue-500 rounded-lg cursor-pointer bg-zinc-200 dark:bg-zinc-800 appearance-none" />
+                      <div className="flex justify-between text-[10px] text-zinc-500 mt-2">
+                          <span>Precise</span>
+                          <span>Balanced</span>
+                          <span>Creative</span>
+                      </div>
                     </div>
                 </div>
-                <button onClick={() => setIsSettingsOpen(false)} className="w-full mt-6 bg-blue-600 hover:bg-blue-700 text-white font-medium py-2.5 rounded-xl transition-colors">Save Changes</button>
+                <button onClick={() => setIsSettingsOpen(false)} className="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]">Save Changes</button>
             </div>
         </div>
       )}
 
-      <aside className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 md:relative md:translate-x-0 backdrop-blur-xl ${theme === 'dark' ? 'bg-black/50 border-zinc-800' : 'bg-zinc-50/80 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <aside className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 md:relative md:translate-x-0 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full p-4">
-          <div className="flex items-center gap-3 px-2 mb-6 mt-1">
-            <div className="w-8 h-8 relative rounded-lg overflow-hidden">
-                 <Image src="/logo.png" alt="Tawarln Logo" fill className="object-contain" />
+          <div className="flex items-center gap-3 px-3 mb-8 mt-2">
+            <div className="w-9 h-9 relative bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-[1px]">
+               <div className={`w-full h-full rounded-[10px] flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-950' : 'bg-white'}`}>
+                 <Bot size={20} className="text-transparent bg-clip-text bg-gradient-to-br from-blue-500 to-purple-600" />
+               </div>
             </div>
-            <span className={`text-lg font-bold tracking-tight bg-gradient-to-r from-blue-400 to-emerald-400 text-transparent bg-clip-text`}>Tawarln AI</span>
-          </div>
-          <button onClick={createNewChat} className={`flex items-center justify-between w-full px-3 py-3 mb-4 rounded-xl border text-sm font-medium transition-all ${theme === 'dark' ? 'border-zinc-800 text-white hover:bg-zinc-800/50 active:scale-[0.98]' : 'bg-white border-zinc-200 text-zinc-700 hover:bg-zinc-50 shadow-sm active:scale-[0.98]'}`}>
-            <div className="flex items-center gap-3"><div className="p-1 bg-black text-white dark:bg-white dark:text-black rounded-md"><Plus size={16} /></div>New Chat</div>
-          </button>
-          
-          <div className="px-3 mb-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider flex justify-between items-center">
-            <span>History</span>
-            {isSyncing && <Cloud size={10} className="text-blue-500 animate-pulse"/>}
+            <span className={`text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text`}>Tawarln AI</span>
           </div>
 
-          <div className="flex-1 overflow-y-auto pb-4">
+          <button onClick={createNewChat} className={`group flex items-center justify-between w-full px-4 py-3.5 mb-6 rounded-2xl border text-sm font-medium transition-all ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700 hover:text-white' : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 shadow-sm'}`}>
+            <span className="flex items-center gap-2">Create New Chat</span>
+            <div className={`p-1 rounded-lg transition-colors ${theme === 'dark' ? 'bg-zinc-800 text-zinc-400 group-hover:text-white' : 'bg-zinc-100 text-zinc-500'}`}><Plus size={16} /></div>
+          </button>
+          
+          <div className="px-3 mb-3 text-[11px] font-bold text-zinc-500 uppercase tracking-wider flex justify-between items-center">
+            <span>Recent Activity</span>
+            {isSyncing && <Cloud size={12} className="text-blue-500 animate-pulse"/>}
+          </div>
+
+          <div className="flex-1 overflow-y-auto pb-4 space-y-1">
             {sessions.map((s) => (
-              <div key={s.id} className={`group flex items-center justify-between rounded-lg text-sm cursor-pointer transition-colors ${currentSessionId === s.id ? (theme === 'dark' ? 'bg-white/10 text-white' : 'bg-white shadow-sm text-zinc-900') : 'text-zinc-500 hover:bg-black/5 dark:hover:bg-white/5'}`}>
-                <div className="flex-1 truncate py-2.5 pl-3" onClick={() => { setCurrentSessionId(s.id); setIsSidebarOpen(false); }}>
-                  {editingSessionId === s.id ? <form onSubmit={saveRename}><input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onBlur={() => setEditingSessionId(null)} className="bg-transparent border border-blue-500 rounded px-1.5 py-0.5 w-full outline-none text-xs" /></form> : <span className="text-[13px]">{s.title}</span>}
+              <div key={s.id} className={`group flex items-center justify-between rounded-xl text-sm cursor-pointer transition-all ${currentSessionId === s.id ? (theme === 'dark' ? 'bg-zinc-900 text-white font-medium' : 'bg-white shadow-sm text-zinc-900 border border-zinc-200') : 'text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-900/50 hover:text-zinc-900 dark:hover:text-zinc-300'}`}>
+                <div className="flex-1 truncate py-3 pl-4" onClick={() => { setCurrentSessionId(s.id); setIsSidebarOpen(false); }}>
+                  {editingSessionId === s.id ? <form onSubmit={saveRename}><input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onBlur={() => setEditingSessionId(null)} className="bg-transparent border-b border-blue-500 px-0 py-0 w-full outline-none text-sm font-normal" /></form> : <span className="text-[13px]">{s.title}</span>}
                 </div>
-                <div className="pr-1 relative">
-                    <button onClick={(e) => { e.stopPropagation(); toggleMenu(s.id); }} className={`p-1.5 rounded-md transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 ${activeMenuId === s.id ? 'opacity-100 bg-zinc-200 dark:bg-white/10' : 'hover:bg-zinc-200 dark:hover:bg-white/10'}`}><MoreHorizontal size={14} /></button>
-                    {activeMenuId === s.id && <div className={`absolute right-0 top-8 w-32 border rounded-lg shadow-xl py-1 z-50 overflow-hidden ${theme === 'dark' ? 'bg-[#1e1e1e] border-zinc-700' : 'bg-white border-zinc-200'}`}>
-                        <button onClick={(e) => { e.stopPropagation(); handleShareChat(s); setActiveMenuId(null); }} className="flex items-center gap-2 px-3 py-2 text-xs w-full hover:bg-zinc-100 dark:hover:bg-white/5 text-blue-500"><Share2 size={12} /> Share</button>
-                        <button onClick={(e) => startRename(e, s)} className="flex items-center gap-2 px-3 py-2 text-xs w-full hover:bg-zinc-100 dark:hover:bg-white/5"><Pencil size={12} /> Rename</button>
-                        <button onClick={(e) => confirmDeleteChat(e, s.id)} className="flex items-center gap-2 px-3 py-2 text-xs text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 size={12} /> Delete</button>
+                <div className="pr-2 relative">
+                    <button onClick={(e) => { e.stopPropagation(); toggleMenu(s.id); }} className={`p-1.5 rounded-lg transition-opacity opacity-0 group-hover:opacity-100 ${activeMenuId === s.id ? 'opacity-100 bg-zinc-200 dark:bg-zinc-800' : 'hover:bg-zinc-200 dark:hover:bg-zinc-800'}`}><MoreHorizontal size={14} /></button>
+                    {activeMenuId === s.id && <div className={`absolute right-0 top-8 w-36 border rounded-xl shadow-xl py-1.5 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                        <button onClick={(e) => { e.stopPropagation(); handleShareChat(s); setActiveMenuId(null); }} className="flex items-center gap-2.5 px-3 py-2 text-xs w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-blue-500 font-medium"><Share2 size={13} /> Share Link</button>
+                        <button onClick={(e) => startRename(e, s)} className="flex items-center gap-2.5 px-3 py-2 text-xs w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300"><Pencil size={13} /> Rename</button>
+                        <div className="h-[1px] bg-zinc-100 dark:bg-zinc-800 mx-3 my-1"></div>
+                        <button onClick={(e) => confirmDeleteChat(e, s.id)} className="flex items-center gap-2.5 px-3 py-2 text-xs text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/10"><Trash2 size={13} /> Delete</button>
                     </div>}
                 </div>
               </div>
             ))}
           </div>
+          
+          {/* User Profile Mini */}
+          <div className={`mt-2 pt-4 border-t ${theme === 'dark' ? 'border-zinc-900' : 'border-zinc-200'}`}>
+             <button onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className={`flex items-center gap-3 w-full p-2 rounded-xl transition-colors ${theme === 'dark' ? 'hover:bg-zinc-900' : 'hover:bg-zinc-100'}`}>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
+                    {user?.email?.slice(0,2).toUpperCase()}
+                </div>
+                <div className="flex-1 text-left min-w-0">
+                    <div className="text-xs font-medium truncate text-zinc-900 dark:text-zinc-200">{user?.email}</div>
+                    <div className="text-[10px] text-zinc-500">Free Plan</div>
+                </div>
+             </button>
+          </div>
         </div>
       </aside>
 
       <main className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
-        <header className={`flex items-center justify-between px-4 py-3 z-[30] border-b ${theme === 'dark' ? 'bg-[#09090b] border-zinc-800' : 'bg-white border-zinc-200'}`}>
+        <header className={`flex items-center justify-between px-6 py-4 z-[30] backdrop-blur-md absolute top-0 w-full ${theme === 'dark' ? 'bg-zinc-950/80' : 'bg-white/80'}`}>
           <div className="flex items-center gap-2">
-            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-zinc-500 p-2 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-lg"><Menu size={20} /></button>
+            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-zinc-500 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"><Menu size={20} /></button>
             <div className="relative">
-                <button onClick={() => setIsModelMenuOpen(!isModelMenuOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg font-medium text-sm hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors">
-                    <span className="bg-gradient-to-r from-blue-500 to-cyan-500 text-transparent bg-clip-text font-semibold">{MODELS.find(m => m.id === selectedModel)?.name}</span>
-                    <ChevronDown size={14} className="text-zinc-400"/>
+                <button onClick={() => setIsModelMenuOpen(!isModelMenuOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900">
+                    <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text font-bold text-lg">{MODELS.find(m => m.id === selectedModel)?.name}</span>
+                    <ChevronDown size={16} className="text-zinc-400"/>
                 </button>
-                {isModelMenuOpen && <div className={`absolute top-full left-0 mt-2 w-64 border rounded-xl shadow-2xl p-1.5 z-50 animate-in fade-in zoom-in-95 duration-100 ${theme === 'dark' ? 'bg-[#18181b] border-zinc-700' : 'bg-white border-zinc-200'}`}>
+                {isModelMenuOpen && <div className={`absolute top-full left-0 mt-3 w-72 border rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                    <div className="px-2 py-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Select Model</div>
                     {MODELS.map((m) => (
-                        <button key={m.id} onClick={() => handleModelChange(m.id)} className={`flex flex-col w-full px-3 py-2 rounded-lg text-left transition-colors ${selectedModel === m.id ? 'bg-blue-600 text-white' : 'hover:bg-zinc-100 dark:hover:bg-white/5 text-zinc-700 dark:text-zinc-200'}`}>
-                            <span className="text-sm font-medium">{m.name}</span>
-                            <span className={`text-[10px] ${selectedModel === m.id ? 'text-blue-200' : 'text-zinc-400'}`}>{m.desc}</span>
+                        <button key={m.id} onClick={() => handleModelChange(m.id)} className={`flex flex-col w-full px-4 py-3 rounded-xl text-left transition-colors ${selectedModel === m.id ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'}`}>
+                            <span className="text-sm font-semibold">{m.name}</span>
+                            <span className={`text-xs ${selectedModel === m.id ? 'text-zinc-400' : 'text-zinc-500'}`}>{m.desc}</span>
                         </button>
                     ))}
                 </div>}
             </div>
           </div>
           
-          <div className="relative flex gap-2">
+          <div className="flex items-center gap-2">
              {currentSessionId && (
                 <button 
                   onClick={() => { const s = sessions.find(s => s.id === currentSessionId); if(s) handleShareChat(s); }}
-                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors"
+                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${theme === 'dark' ? 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
                 >
                     <Share2 size={14} /> Share
                 </button>
              )}
-
-            <button onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs hover:ring-2 ring-offset-2 ring-offset-black ring-blue-500 transition-all">{user?.email?.slice(0,2).toUpperCase()}</button>
-            {isProfileMenuOpen && <div className={`absolute right-0 top-10 w-56 border rounded-xl shadow-2xl py-1 z-50 animate-in fade-in slide-in-from-top-2 ${theme === 'dark' ? 'bg-[#18181b] border-zinc-700' : 'bg-white border-zinc-200'}`}>
-                <div className="px-4 py-3 border-b border-zinc-100 dark:border-white/5 text-xs font-medium text-zinc-500 truncate">{user?.email}</div>
-                <button onClick={() => { setIsSettingsOpen(true); setIsProfileMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors"><Sliders size={16} /> Settings</button>
-                <button onClick={toggleTheme} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors">{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>} {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button>
-                <div className="h-[1px] bg-zinc-100 dark:bg-white/5 my-1"></div>
-                <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"><LogOut size={16}/> Log Out</button>
+             
+             {isProfileMenuOpen && <div className={`absolute right-6 top-16 w-56 border rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                <button onClick={() => { setIsSettingsOpen(true); setIsProfileMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200"><Sliders size={16} /> Preferences</button>
+                <button onClick={toggleTheme} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200">{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>} {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button>
+                <div className="h-[1px] bg-zinc-100 dark:bg-zinc-800 my-1"></div>
+                <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"><LogOut size={16}/> Sign Out</button>
             </div>}
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto">
-            <div className={`max-w-[768px] mx-auto px-4 pb-[150px] pt-8 min-h-full flex flex-col ${currentMessages.length === 0 ? 'justify-center' : ''}`}>
+        <div className="flex-1 overflow-y-auto pt-20">
+            <div className={`max-w-3xl mx-auto px-4 pb-[180px] min-h-full flex flex-col ${currentMessages.length === 0 ? 'justify-center' : ''}`}>
             
             {currentMessages.length === 0 && (
                 <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 py-10">
-                    <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-zinc-200 dark:border-zinc-800 shadow-sm">
-                        <Bot size={32} className="text-blue-500" />
+                    <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-8 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 shadow-xl shadow-blue-500/5">
+                        <Sparkle size={40} className="text-blue-500" />
                     </div>
-                    <h2 className="text-2xl font-bold mb-2 tracking-tight text-center">How can I help you today?</h2>
+                    <h2 className="text-3xl font-bold mb-3 tracking-tight text-center bg-gradient-to-b from-zinc-800 to-zinc-500 dark:from-white dark:to-zinc-400 text-transparent bg-clip-text">How can I help you today?</h2>
+                    <p className="text-zinc-500 dark:text-zinc-400 text-center mb-10 max-w-md">I can help you analyze data, write code, or just brainstorm creative ideas.</p>
                     
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl mt-8">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
                         {randomSuggestions.map((item, idx) => (
-                            <button key={idx} onClick={() => sendMessage(item.text)} className={`flex items-start gap-4 p-4 border rounded-xl text-left transition-all hover:-translate-y-0.5 ${theme === 'dark' ? 'bg-[#18181b] border-zinc-800 hover:bg-[#202023]' : 'bg-white border-zinc-200 hover:bg-zinc-50 shadow-sm'}`}>
-                                <div className="text-blue-500 mt-0.5">{item.icon}</div>
+                            <button key={idx} onClick={() => sendMessage(item.text)} className={`group flex items-center gap-4 p-4 border rounded-2xl text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800' : 'bg-white border-zinc-200 hover:border-zinc-300'}`}>
+                                <div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-zinc-800 text-blue-400 group-hover:bg-zinc-700' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-100'}`}>{item.icon}</div>
                                 <div>
-                                    <div className="text-sm font-semibold mb-0.5">{item.label}</div>
-                                    <div className="text-xs text-zinc-500 dark:text-zinc-400 line-clamp-1">{item.text}</div>
+                                    <div className="text-xs font-bold uppercase tracking-wider opacity-50 mb-0.5">{item.label}</div>
+                                    <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 line-clamp-1">{item.text}</div>
                                 </div>
                             </button>
                         ))}
@@ -712,77 +742,95 @@ export default function Home() {
             )}
             
             {currentMessages.map((msg, index) => (
-              <div key={index} className="py-6 group animate-in fade-in slide-in-from-bottom-2 duration-300">
-                <div className="flex gap-4 md:gap-6">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 shadow-sm ${msg.role === 'assistant' ? 'bg-emerald-600 text-white' : 'bg-gradient-to-br from-purple-600 to-blue-600 text-white'}`}>
-                        {msg.role === 'assistant' ? <Bot size={18} /> : <UserIcon size={18} />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                        <div className="font-semibold text-sm mb-1 opacity-90">{msg.role === 'assistant' ? 'Tawarln' : 'You'}</div>
-                        
-                        {editingMessageIndex === index ? (
-                            <div className={`border rounded-xl p-3 ${theme === 'dark' ? 'bg-[#18181b] border-zinc-800' : 'bg-white border-zinc-200 shadow-sm'}`}>
-                            <TextareaAutosize value={editingMessageText} onChange={(e) => setEditingMessageText(e.target.value)} className={`w-full bg-transparent border-none focus:ring-0 resize-none mb-2 ${theme === 'dark' ? 'text-zinc-100' : 'text-zinc-900'}`} />
-                            <div className="flex justify-end gap-2">
-                                <button onClick={() => setEditingMessageIndex(null)} className="px-3 py-1.5 text-xs bg-zinc-600 hover:bg-zinc-500 text-white rounded-lg transition-colors">Cancel</button>
-                                <button onClick={saveEditAndRegenerate} className="px-3 py-1.5 text-xs bg-emerald-600 hover:bg-emerald-500 rounded-lg text-white transition-colors">Save & Regenerate</button>
-                            </div>
-                            </div>
-                        ) : (
-                            <div className={`prose max-w-none text-[15px] leading-7 ${theme === 'dark' ? 'prose-invert prose-p:text-zinc-300' : 'prose-zinc prose-p:text-zinc-700'}`}>
+              <div key={index} className={`group py-6 ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
+                {msg.role === 'user' ? (
+                    // USER BUBBLE
+                    <div className="flex gap-3 max-w-[80%] flex-row-reverse">
+                        <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0">
+                            <UserIcon size={16} className="text-zinc-600 dark:text-zinc-400" />
+                        </div>
+                        <div className={`px-5 py-3 rounded-2xl ${theme === 'dark' ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-800'}`}>
+                            <div className="prose dark:prose-invert prose-sm max-w-none text-[15px] leading-7">
                                 {renderMessageContent(msg.content)}
                             </div>
-                        )}
-
-                        {!editingMessageIndex && (
-                            <div className="flex items-center gap-2 mt-2 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                            <button onClick={() => copyMessage(typeof msg.content === 'string' ? msg.content : 'Image content')} className="p-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-md transition-colors" title="Copy"><Copy size={14} /></button>
-                            {msg.role === 'user' && typeof msg.content === 'string' && (
-                                <button onClick={() => startEditMessage(index, msg.content)} className="p-1.5 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-md transition-colors" title="Edit"><Edit2 size={14} /></button>
+                            {!editingMessageIndex && (
+                                <div className="flex items-center justify-end gap-2 mt-2 opacity-0 group-hover:opacity-50 transition-opacity">
+                                    <button onClick={() => startEditMessage(index, msg.content as string)} className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><Edit2 size={12} /></button>
+                                </div>
                             )}
-                            </div>
-                        )}
+                        </div>
                     </div>
-                </div>
+                ) : (
+                    // AI RESPONSE (CLEAN TEXT)
+                    <div className="flex gap-4 md:gap-6 max-w-3xl">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 mt-1">
+                            <Bot size={18} className="text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <div className="font-semibold text-sm mb-2 opacity-90 flex items-center gap-2">
+                                Tawarln 
+                                <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">AI</span>
+                            </div>
+                            <div className={`prose max-w-none text-[15px] leading-7 ${theme === 'dark' ? 'prose-invert prose-p:text-zinc-300 prose-headings:text-zinc-100' : 'prose-zinc prose-p:text-zinc-700'}`}>
+                                {renderMessageContent(msg.content)}
+                            </div>
+                            <div className="flex items-center gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onClick={() => copyMessage(typeof msg.content === 'string' ? msg.content : 'Image content')} className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><Copy size={12} /> Copy</button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+                
+                {/* Edit Form */}
+                {editingMessageIndex === index && (
+                    <div className="mt-2 w-full max-w-3xl mx-auto border rounded-xl p-4 shadow-lg bg-white dark:bg-zinc-900 border-blue-500/50">
+                        <TextareaAutosize value={editingMessageText} onChange={(e) => setEditingMessageText(e.target.value)} className="w-full bg-transparent border-none focus:ring-0 resize-none mb-3 text-zinc-900 dark:text-zinc-100" />
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => setEditingMessageIndex(null)} className="px-4 py-2 text-xs bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:opacity-80">Cancel</button>
+                            <button onClick={saveEditAndRegenerate} className="px-4 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save & Regenerate</button>
+                        </div>
+                    </div>
+                )}
               </div>
             ))}
 
             {loading && (
-                <div className="py-6 flex gap-6 animate-pulse">
-                    <div className="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center text-white"><Bot size={18} /></div>
-                    <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce"></div>
-                        <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce delay-150"></div>
-                        <div className="w-2 h-2 bg-zinc-400 rounded-full animate-bounce delay-300"></div>
-                        <button onClick={handleStop} className="ml-4 text-xs border border-zinc-300 dark:border-zinc-700 px-2 py-1 rounded-md text-zinc-500 hover:bg-zinc-100 dark:hover:bg-white/5 transition-colors">Stop generating</button>
+                <div className="py-6 flex gap-6">
+                    <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-full flex items-center justify-center text-white shrink-0"><Bot size={18} /></div>
+                    <div className="flex items-center gap-1 mt-2">
+                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></div>
+                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-150"></div>
+                        <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-300"></div>
+                        <button onClick={handleStop} className="ml-6 text-xs text-zinc-400 hover:text-red-500 transition-colors">Stop</button>
                     </div>
                 </div>
             )}
             <div ref={messagesEndRef} className="h-4" />
         </div></div>
 
-        <div className={`absolute bottom-0 left-0 w-full pt-4 pb-6 px-4 bg-gradient-to-t ${theme === 'dark' ? 'from-[#09090b] via-[#09090b]/90 to-transparent' : 'from-white via-white/90 to-transparent'} backdrop-blur-sm`}>
+        {/* INPUT AREA FLOATING */}
+        <div className="absolute bottom-6 left-0 w-full px-4">
             <div className="max-w-[768px] mx-auto">
             {attachment && (
-              <div className={`mb-2 p-3 border rounded-xl w-fit flex items-center gap-3 animate-in slide-in-from-bottom-2 shadow-lg ${theme === 'dark' ? 'bg-[#18181b] border-zinc-800' : 'bg-white border-zinc-200'}`}>
+              <div className={`mb-3 p-3 border rounded-2xl w-fit flex items-center gap-3 animate-in slide-in-from-bottom-2 shadow-xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
                 {attachment.type === 'image' ? (
-                  <div className="relative w-10 h-10 rounded-lg overflow-hidden">
+                  <div className="relative w-12 h-12 rounded-xl overflow-hidden">
                       <Image src={attachment.url} alt="Attachment" fill className="object-cover" />
                   </div>
                 ) : (
-                  <div className="w-10 h-10 bg-blue-500/10 rounded-lg flex items-center justify-center"><FileCode size={20} className="text-blue-500" /></div>
+                  <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center"><FileCode size={24} className="text-blue-500" /></div>
                 )}
                 <div>
-                    <div className="text-xs font-medium truncate max-w-[150px]">{attachment.name}</div>
-                    <div className="text-[10px] text-zinc-500 uppercase">Attached</div>
+                    <div className="text-xs font-bold truncate max-w-[150px]">{attachment.name}</div>
+                    <div className="text-[10px] text-zinc-500 uppercase tracking-wide">Attached File</div>
                 </div>
-                <button onClick={() => setAttachment(null)} className="p-1 hover:bg-red-500/10 hover:text-red-500 rounded-full transition-colors"><X size={14}/></button>
+                <button onClick={() => setAttachment(null)} className="p-1.5 hover:bg-red-500/10 hover:text-red-500 rounded-full transition-colors ml-2"><X size={14}/></button>
               </div>
             )}
             
-            <div className={`relative flex items-end gap-2 border rounded-2xl p-2 shadow-xl focus-within:ring-2 focus-within:ring-blue-500/20 transition-all ${theme === 'dark' ? 'bg-[#18181b] border-zinc-800' : 'bg-white border-zinc-200'}`}>
-              <button onClick={() => fileInputRef.current?.click()} className="p-2.5 text-zinc-400 hover:text-blue-500 hover:bg-blue-500/5 rounded-xl transition-colors" title="Upload File"><Plus size={20} /></button>
-              <button onClick={() => setIsWebSearchActive(!isWebSearchActive)} className={`p-2.5 transition-all rounded-xl ${isWebSearchActive ? 'text-blue-500 bg-blue-500/10' : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-white/5'}`} title="Web Search">
+            <div className={`relative flex items-end gap-2 border p-2 shadow-2xl backdrop-blur-xl transition-all rounded-[26px] ${theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800 focus-within:border-zinc-700' : 'bg-white/90 border-zinc-200 focus-within:border-zinc-300'}`}>
+              <button onClick={() => fileInputRef.current?.click()} className="p-3 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors" title="Upload"><Plus size={20} /></button>
+              <button onClick={() => setIsWebSearchActive(!isWebSearchActive)} className={`p-3 rounded-full transition-all ${isWebSearchActive ? 'text-blue-500 bg-blue-500/10' : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`} title="Web Search">
                   <Globe size={20} className={isWebSearchActive ? 'animate-pulse' : ''}/>
               </button>
               
@@ -790,19 +838,19 @@ export default function Home() {
                 minRows={1} maxRows={8} 
                 value={input} onChange={(e) => setInput(e.target.value)} 
                 onKeyDown={handleKeyDown} 
-                placeholder="Message Tawarln..." 
-                className={`flex-1 bg-transparent border-none focus:ring-0 py-2.5 px-2 text-[15px] resize-none ${theme === 'dark' ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-zinc-900 placeholder:text-zinc-400'}`} 
+                placeholder="Ask anything..." 
+                className={`flex-1 bg-transparent border-none focus:ring-0 py-3 px-2 text-[15px] resize-none max-h-[200px] overflow-y-auto ${theme === 'dark' ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-zinc-900 placeholder:text-zinc-400'}`} 
               />
               
               <button 
                 onClick={() => sendMessage(input)} 
                 disabled={loading || (!input.trim() && !attachment)} 
-                className={`p-2.5 rounded-xl transition-all duration-200 ${(input.trim() || attachment) ? 'bg-blue-600 text-white shadow-md hover:bg-blue-700 active:scale-95' : 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed'}`}
+                className={`p-3 rounded-full transition-all duration-200 ${(input.trim() || attachment) ? 'bg-zinc-900 dark:bg-white text-white dark:text-black shadow-md hover:opacity-90 active:scale-95' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-300 dark:text-zinc-600 cursor-not-allowed'}`}
               >
                   <Send size={18} />
               </button>
             </div>
-            <p className="text-center text-[10px] text-zinc-400 mt-3">Tawarln can make mistakes. Consider checking important information.</p>
+            <p className="text-center text-[10px] text-zinc-400 mt-4 opacity-60">Tawarln AI can make mistakes. Verify important info.</p>
         </div></div>
       </main>
     </div>
