@@ -4,6 +4,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
+import * as cheerio from 'cheerio';
 import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/index.mjs';
 
 const client = new OpenAI({
@@ -50,6 +51,34 @@ async function googleSearch(query: string) {
     return data.items.slice(0, 3).map((item: GoogleSearchItem) => 
       `Title: ${item.title}\nLink: ${item.link}\nSnippet: ${item.snippet}`
     ).join('\n\n');
+  } catch {
+    return null;
+  }
+}
+
+async function scrapeUrl(url: string) {
+  try {
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+      }
+    });
+
+    if (!res.ok) return null;
+
+    const html = await res.text();
+    const $ = cheerio.load(html);
+
+    $('script').remove();
+    $('style').remove();
+    $('nav').remove();
+    $('footer').remove();
+    $('iframe').remove();
+    $('.ads').remove();
+
+    const text = $('body').text().replace(/\s+/g, ' ').trim();
+    
+    return text.slice(0, 8000); 
   } catch {
     return null;
   }
@@ -144,8 +173,30 @@ export async function POST(req: Request) {
     }
 
     const finalMessages = [...messages];
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    const urls = userQuery.match(urlRegex);
 
-    if (webSearch) {
+    if (urls && urls.length > 0) {
+        const targetUrl = urls[0];
+        const scrapedContent = await scrapeUrl(targetUrl);
+
+        if (scrapedContent) {
+            const injectedContent = `
+[ISI WEBSITE DARI LINK USER (${targetUrl})]:
+${scrapedContent}
+
+[INSTRUKSI]:
+User mengirimkan link. Gunakan ISI WEBSITE di atas untuk menjawab pertanyaan user. Jangan halusinasi.
+
+[PERTANYAAN USER]:
+${userQuery}`;
+
+            finalMessages[finalMessages.length - 1] = {
+                role: lastMessage.role,
+                content: injectedContent
+            };
+        }
+    } else if (webSearch) {
       if (userQuery && userQuery.length > 2) {
           const searchResults = await googleSearch(userQuery);
           
