@@ -7,18 +7,17 @@ import Image from 'next/image';
 import { 
   Send, Trash2, Copy, Check, Bot, User as UserIcon,
   Terminal, Sparkles, Coffee, BookOpen, 
-  Menu, Plus, ChevronDown,
+  Plus, ChevronDown,
   X, FileCode, Pencil, MoreHorizontal, Sliders, LogOut, 
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
   Gamepad2, Plane, Code2, Lightbulb,
-  Eye, Code, Share2, Sparkle
+  Eye, Code, Share2, Sparkle,  PanelLeftClose, PanelLeftOpen
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
 import { User } from '@supabase/supabase-js';
 
-// --- CONSTANTS ---
 const MODELS = [
   { id: 'Claude Sonnet 4.5', name: 'Claude 4.5 Sonnet', desc: 'Superior Reasoning & Code' },
   { id: 'GLM 4.6', name: 'GLM 4.6', desc: 'Balanced Performance' },
@@ -39,7 +38,6 @@ const ALL_SUGGESTIONS = [
   { icon: <Gamepad2 size={16} />, text: "Lore Elden Ring explained", label: "Gaming" },
 ];
 
-// --- TYPES ---
 type VisionItem = { type: 'text' | 'image_url'; text?: string; image_url?: { url: string } };
 type VisionContent = Array<VisionItem>;
 type MessageContent = string | VisionContent;
@@ -73,8 +71,6 @@ type DatabaseChat = {
 interface TextItem {
   str: string;
 }
-
-// --- COMPONENTS ---
 
 interface CodeProps extends ComponentPropsWithoutRef<'code'> { inline?: boolean; }
 
@@ -147,7 +143,6 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   );
 };
 
-// --- APP ---
 export default function Home() {
   const [user, setUser] = useState<User | null>(null); 
   const [authLoading, setAuthLoading] = useState(true);
@@ -159,7 +154,7 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -283,7 +278,6 @@ export default function Home() {
     const newSession: ChatSession = { id: newId, title: 'New Chat', messages: [], createdAt: Date.now(), model: selectedModel };
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newId);
-    setIsSidebarOpen(false);
     setAttachment(null);
     syncSessionToDb(newSession);
   }, [selectedModel, user, syncSessionToDb]);
@@ -621,15 +615,25 @@ export default function Home() {
         </div>
       )}
 
+      {/* SIDEBAR DENGAN TOGGLE */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 md:relative md:translate-x-0 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="flex flex-col h-full p-4">
-          <div className="flex items-center gap-3 px-3 mb-8 mt-2">
-            <div className="w-9 h-9 relative bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-[1px]">
-               <div className={`w-full h-full rounded-[10px] flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-950' : 'bg-white'} overflow-hidden relative`}>
-                 <Image src="/logo.png" alt="Tawarln Logo" width={24} height={24} className="object-contain" />
-               </div>
+        <div className="flex flex-col h-full p-4 relative">
+          
+          <div className="flex items-center justify-between px-3 mb-8 mt-2">
+            <div className="flex items-center gap-3">
+                <div className="w-9 h-9 relative bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-[1px]">
+                <div className={`w-full h-full rounded-[10px] flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-950' : 'bg-white'} overflow-hidden relative`}>
+                    {/* LOGO: Pake image kalau ada, kalau error pake icon Command */}
+                    <Image src="/logo.png" alt="Tawarln Logo" width={24} height={24} className="object-contain" />
+                </div>
+                </div>
+                <span className={`text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text`}>Tawarln</span>
             </div>
-            <span className={`text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text`}>Tawarln AI</span>
+            
+            {/* TOMBOL CLOSE SIDEBAR (Hanya muncul di Mobile/Tablet) */}
+            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
+                <PanelLeftClose size={20} />
+            </button>
           </div>
 
           <button onClick={createNewChat} className={`group flex items-center justify-between w-full px-4 py-3.5 mb-6 rounded-2xl border text-sm font-medium transition-all ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700 hover:text-white' : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 shadow-sm'}`}>
@@ -661,7 +665,6 @@ export default function Home() {
             ))}
           </div>
           
-          {/* USER PROFILE DI BAWAH (SIDEBAR) - FIX POSISI MENU */}
           <div className={`mt-2 pt-4 border-t ${theme === 'dark' ? 'border-zinc-900' : 'border-zinc-200'} relative`}>
              <button onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className={`flex items-center gap-3 w-full p-2 rounded-xl transition-colors ${theme === 'dark' ? 'hover:bg-zinc-900' : 'hover:bg-zinc-100'}`}>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
@@ -674,7 +677,6 @@ export default function Home() {
                 <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
              </button>
 
-             {/* MENU PROFILE POP-UP DI ATAS TOMBOL (BOTTOM-LEFT) */}
              {isProfileMenuOpen && (
                 <div className={`absolute bottom-full left-0 mb-2 w-full border rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-bottom-2 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
                     <button onClick={() => { setIsSettingsOpen(true); setIsProfileMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200"><Sliders size={16} /> Preferences</button>
@@ -687,11 +689,15 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
         <header className={`flex items-center justify-between px-6 py-4 z-[30] backdrop-blur-md absolute top-0 w-full ${theme === 'dark' ? 'bg-zinc-950/80' : 'bg-white/80'}`}>
           <div className="flex items-center gap-2">
-            <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-zinc-500 p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"><Menu size={20} /></button>
+            
+            {/* TOMBOL TOGGLE SIDEBAR (Desktop & Mobile) */}
+            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
+                {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
+            </button>
+
             <div className="relative">
                 <button onClick={() => setIsModelMenuOpen(!isModelMenuOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900">
                     <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text font-bold text-lg">{MODELS.find(m => m.id === selectedModel)?.name}</span>
@@ -721,9 +727,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* ... (SISA CODE INPUT DAN CHAT AREA SAMA SEPERTI SEBELUMNYA) ... */}
-        {/* Supaya gak kepotong, gw tulis ulang bagian bawahnya dengan rapi */}
-        
         <div className="flex-1 overflow-y-auto pt-20">
             <div className={`max-w-3xl mx-auto px-4 pb-[180px] min-h-full flex flex-col ${currentMessages.length === 0 ? 'justify-center' : ''}`}>
             
