@@ -12,7 +12,7 @@ import {
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
   Gamepad2, Plane, Code2, Lightbulb,
-  Eye, Code, Share2, Sparkle, Command
+  Eye, Code, Share2, Sparkle
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
@@ -558,8 +558,7 @@ export default function Home() {
         <div className="w-full max-w-sm bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 shadow-2xl text-center">
           <div className="flex justify-center mb-8">
             <div className="w-24 h-24 bg-zinc-800/80 rounded-2xl flex items-center justify-center shadow-lg border border-zinc-700/50 p-5 ring-4 ring-zinc-800/30">
-              {/* FALLBACK LOGO: If image missing, show ICON */}
-              <Command size={48} className="text-white" />
+              <Image src="/logo.png" alt="Tawarln Logo" width={80} height={80} className="w-full h-full object-contain" />
             </div>
           </div>
           <h1 className="text-3xl font-bold mb-3 tracking-tight bg-gradient-to-b from-white to-zinc-400 text-transparent bg-clip-text">Tawarln AI</h1>
@@ -578,7 +577,6 @@ export default function Home() {
 
       {(activeMenuId || isModelMenuOpen || isProfileMenuOpen || isDeleteModalOpen) && <div className="fixed inset-0 z-[25]" onClick={closeAllMenus} />}
 
-      {/* MODAL DELETE */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className={`border rounded-3xl w-full max-w-sm p-6 shadow-2xl relative scale-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
@@ -595,7 +593,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* SETTINGS MODAL */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className={`border rounded-3xl w-full max-w-md p-6 relative shadow-2xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
@@ -624,14 +621,12 @@ export default function Home() {
         </div>
       )}
 
-      {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 md:relative md:translate-x-0 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full p-4">
           <div className="flex items-center gap-3 px-3 mb-8 mt-2">
             <div className="w-9 h-9 relative bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-[1px]">
-               <div className={`w-full h-full rounded-[10px] flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-950' : 'bg-white'}`}>
-                 {/* LOGO DI SIDEBAR: Kalau image rusak, pake icon */}
-                 <Command size={20} className="text-transparent bg-clip-text bg-gradient-to-br from-blue-500 to-purple-600" />
+               <div className={`w-full h-full rounded-[10px] flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-950' : 'bg-white'} overflow-hidden relative`}>
+                 <Image src="/logo.png" alt="Tawarln Logo" width={24} height={24} className="object-contain" />
                </div>
             </div>
             <span className={`text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text`}>Tawarln AI</span>
