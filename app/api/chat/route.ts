@@ -5,7 +5,7 @@ import { cookies } from 'next/headers';
 import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import * as cheerio from 'cheerio';
-import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/index.mjs';
+import type { ChatCompletionCreateParamsStreaming, ChatCompletionMessageParam } from 'openai/resources/index.mjs';
 
 const client = new OpenAI({
   apiKey: process.env.KOLOSAL_API_KEY,
@@ -19,7 +19,7 @@ const redis = process.env.UPSTASH_REDIS_REST_URL
 const ratelimit = redis 
   ? new Ratelimit({
       redis: redis,
-      limiter: Ratelimit.slidingWindow(5, "60 s"), 
+      limiter: Ratelimit.slidingWindow(10, "60 s"), 
       analytics: true,
     })
   : null;
@@ -48,7 +48,7 @@ async function googleSearch(query: string) {
 
     if (data.error || !data.items) return null;
 
-    return data.items.slice(0, 3).map((item: GoogleSearchItem) => 
+    return data.items.slice(0, 4).map((item: GoogleSearchItem) => 
       `Title: ${item.title}\nLink: ${item.link}\nSnippet: ${item.snippet}`
     ).join('\n\n');
   } catch {
@@ -77,11 +77,30 @@ async function scrapeUrl(url: string) {
     $('.ads').remove();
 
     const text = $('body').text().replace(/\s+/g, ' ').trim();
-    
-    return text.slice(0, 8000); 
+    return text.slice(0, 6000); 
   } catch {
     return null;
   }
+}
+
+async function generateSearchKeyword(messages: ChatCompletionMessageParam[], model: string) {
+    try {
+        const recentMessages = messages.slice(-3);
+        const response = await client.chat.completions.create({
+            model: model,
+            messages: [
+                { role: "system", content: "You are a Search Query Generator. Read the conversation history and the user's last request. Output ONLY a concise Google Search keyword that best fits the user's intent. Do not output anything else." },
+                ...recentMessages
+            ],
+            temperature: 0.3,
+            max_tokens: 30,
+        });
+
+        const keyword = response.choices[0]?.message?.content?.trim();
+        return keyword || null;
+    } catch {
+        return null;
+    }
 }
 
 export async function POST(req: Request) {
@@ -130,9 +149,7 @@ export async function POST(req: Request) {
         if (profile?.bio) {
             userMemory = profile.bio;
         }
-    } catch {
-        
-    }
+    } catch { }
 
     if (ratelimit) {
       const { success, reset } = await ratelimit.limit(userId);
@@ -151,7 +168,7 @@ export async function POST(req: Request) {
     const finalTemp = temperature !== undefined ? parseFloat(temperature) : 0.7;
 
     if (userMemory) {
-        finalSystemPrompt += `\n\n[INGATAN TENTANG USER]:\n${userMemory}\n(Gunakan informasi ini untuk mempersonalisasi jawaban, tapi jangan mengulanginya secara eksplisit kecuali diminta).`;
+        finalSystemPrompt += `\n\n[INGATAN TENTANG USER]:\n${userMemory}\n(Gunakan informasi ini untuk mempersonalisasi jawaban).`;
     }
 
     const lastMessage = messages[messages.length - 1];
@@ -197,26 +214,29 @@ ${userQuery}`;
             };
         }
     } else if (webSearch) {
-      if (userQuery && userQuery.length > 2) {
-          const searchResults = await googleSearch(userQuery);
+        const optimizedKeyword = await generateSearchKeyword(messages, selectedModel);
+        const finalSearchQuery = optimizedKeyword || userQuery;
+
+        if (finalSearchQuery && finalSearchQuery.length > 1) {
+             const searchResults = await googleSearch(finalSearchQuery);
           
-          if (searchResults) {
-            const injectedContent = `
-[INFORMASI DARI INTERNET]:
+             if (searchResults) {
+                const injectedContent = `
+[HASIL PENCARIAN GOOGLE (Keyword: "${finalSearchQuery}")]:
 ${searchResults}
 
 [INSTRUKSI]:
-Gunakan informasi di atas untuk menjawab pertanyaan user di bawah ini. Sertakan link referensi jika ada.
+Gunakan informasi di atas untuk menjawab pertanyaan user. Sertakan link referensi jika ada.
 
 [PERTANYAAN USER]:
 ${userQuery}`;
 
-            finalMessages[finalMessages.length - 1] = {
-                role: lastMessage.role,
-                content: injectedContent
-            };
-          }
-      }
+                finalMessages[finalMessages.length - 1] = {
+                    role: lastMessage.role,
+                    content: injectedContent
+                };
+             }
+        }
     }
 
     const body: ChatCompletionCreateParamsStreaming & Record<string, unknown> = {
