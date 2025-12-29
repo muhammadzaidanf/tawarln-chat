@@ -11,8 +11,8 @@ import {
   X, FileCode, Pencil, MoreHorizontal, Sliders, LogOut, 
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
-  Gamepad2, Plane,  Code2, Lightbulb,
-  Eye, Code, Share2, Sparkle, Command, PanelLeftClose, PanelLeftOpen, 
+  Gamepad2, Plane, Code2, Lightbulb,
+  Share2, Sparkle, PanelLeftClose, PanelLeftOpen, Command
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
@@ -20,19 +20,19 @@ import { User } from '@supabase/supabase-js';
 
 // --- CONSTANTS ---
 const MODELS = [
-  { id: 'Claude Sonnet 4.5', name: 'Claude 4.5 Sonnet', desc: 'Superior Reasoning & Code' },
-  { id: 'GLM 4.6', name: 'GLM 4.6', desc: 'Balanced Performance' },
-  { id: 'Kimi K2', name: 'Kimi K2', desc: 'Creative Writing' },
-  { id: 'Llama 4 Maverick', name: 'Llama 4', desc: 'High Speed' },
-  { id: 'MiniMax M2', name: 'MiniMax M2', desc: 'General Assistant' },
-  { id: 'Qwen 3 30BA3B', name: 'Qwen 3', desc: 'Complex Logic' },
+  { id: 'Claude Sonnet 4.5', name: 'Claude 4.5 Sonnet', desc: 'Superior Reasoning' },
+  { id: 'GLM 4.6', name: 'GLM 4.6', desc: 'Balanced' },
+  { id: 'Kimi K2', name: 'Kimi K2', desc: 'Creative' },
+  { id: 'Llama 4 Maverick', name: 'Llama 4', desc: 'Fastest' },
+  { id: 'MiniMax M2', name: 'MiniMax M2', desc: 'General' },
+  { id: 'Qwen 3 30BA3B', name: 'Qwen 3', desc: 'Logic' },
 ];
 
 const ALL_SUGGESTIONS = [
   { icon: <Terminal size={16} />, text: "Script Python login system", label: "Coding" },
   { icon: <Sparkles size={16} />, text: "Analisa gambar arsitektur", label: "Vision" },
-  { icon: <BookOpen size={16} />, text: "Jelaskan konsep Quantum Physics", label: "Science" },
-  { icon: <Coffee size={16} />, text: "Resep pasta simple 15 menit", label: "Lifestyle" },
+  { icon: <BookOpen size={16} />, text: "Jelaskan konsep Quantum", label: "Science" },
+  { icon: <Coffee size={16} />, text: "Resep pasta 15 menit", label: "Lifestyle" },
   { icon: <Plane size={16} />, text: "Itinerary Jepang 7 hari", label: "Travel" },
   { icon: <Code2 size={16} />, text: "Debug error React Hydration", label: "Programming" },
   { icon: <Lightbulb size={16} />, text: "Ide bisnis SaaS B2B", label: "Business" },
@@ -74,12 +74,12 @@ interface TextItem {
   str: string;
 }
 
+// --- COMPONENTS ---
 interface CodeProps extends ComponentPropsWithoutRef<'code'> { inline?: boolean; }
 
 const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   const [isCopied, setIsCopied] = useState(false);
   const [mode, setMode] = useState<'code' | 'preview'>('code'); 
-  
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : 'text';
   const codeContent = String(children).replace(/\n$/, '');
@@ -87,64 +87,41 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   const handleCopy = () => {
     navigator.clipboard.writeText(codeContent);
     setIsCopied(true);
-    toast.success('Code copied to clipboard');
+    toast.success('Code copied!');
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  if (inline) return <code className="bg-zinc-100 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded-md text-sm font-mono" {...props}>{children}</code>;
-
+  if (inline) return <code className="bg-zinc-200 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
   const isHtml = language === 'html' || language === 'xml';
 
   return (
-    <div className="relative my-6 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121214] shadow-sm group">
-      <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-900/50 px-4 py-2.5 text-xs text-zinc-500 dark:text-zinc-400 select-none border-b border-zinc-200 dark:border-zinc-800">
-        <div className="flex gap-3 items-center">
-          <span className="uppercase font-bold tracking-wider font-mono text-zinc-600 dark:text-zinc-400">{language}</span>
-          
+    <div className="relative my-4 rounded-lg overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121214] shadow-sm">
+      <div className="flex justify-between items-center bg-zinc-50 dark:bg-zinc-900 px-3 py-2 text-xs text-zinc-500 border-b border-zinc-200 dark:border-zinc-800">
+        <div className="flex gap-2 items-center">
+          <span className="font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase">{language}</span>
           {isHtml && (
-            <div className="flex bg-zinc-200 dark:bg-zinc-800 rounded-md p-0.5 ml-2">
-                <button 
-                  onClick={() => setMode('code')} 
-                  className={`px-2 py-0.5 rounded flex items-center gap-1.5 transition-all ${mode === 'code' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-500'}`}
-                >
-                    <Code size={12}/> Code
-                </button>
-                <button 
-                  onClick={() => setMode('preview')} 
-                  className={`px-2 py-0.5 rounded flex items-center gap-1.5 transition-all ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-500'}`}
-                >
-                    <Eye size={12}/> Preview
-                </button>
+            <div className="flex bg-zinc-200 dark:bg-zinc-800 rounded p-0.5 ml-2">
+                <button onClick={() => setMode('code')} className={`px-2 py-0.5 rounded ${mode === 'code' ? 'bg-white dark:bg-zinc-700 shadow-sm' : 'text-zinc-500'}`}>Code</button>
+                <button onClick={() => setMode('preview')} className={`px-2 py-0.5 rounded ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 shadow-sm' : 'text-zinc-500'}`}>Preview</button>
             </div>
           )}
         </div>
-
-        <button onClick={handleCopy} className="flex items-center gap-1.5 hover:text-black dark:hover:text-white transition-colors">
-          {isCopied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
-          <span>{isCopied ? 'Copied' : 'Copy'}</span>
+        <button onClick={handleCopy} className="flex items-center gap-1 hover:text-black dark:hover:text-white">
+          {isCopied ? <Check size={14} /> : <Copy size={14} />} {isCopied ? 'Copied' : 'Copy'}
         </button>
       </div>
-
       <div className="relative">
         {mode === 'code' ? (
-             <div className="p-4 overflow-x-auto text-sm font-mono leading-relaxed">
-                <code className={`!bg-transparent ${className}`} {...props}>{children}</code>
-             </div>
+             <div className="p-3 overflow-x-auto text-sm font-mono"><code className={`!bg-transparent ${className}`} {...props}>{children}</code></div>
         ) : (
-            <div className="w-full h-[400px] bg-white border-none resize-y overflow-auto">
-                <iframe 
-                    srcDoc={codeContent} 
-                    className="w-full h-full border-none block" 
-                    sandbox="allow-scripts" 
-                    title="Code Preview"
-                />
-            </div>
+            <div className="w-full h-[300px] bg-white border-none resize-y overflow-auto"><iframe srcDoc={codeContent} className="w-full h-full border-none block" sandbox="allow-scripts" title="Preview"/></div>
         )}
       </div>
     </div>
   );
 };
 
+// --- MAIN PAGE ---
 export default function Home() {
   const [user, setUser] = useState<User | null>(null); 
   const [authLoading, setAuthLoading] = useState(true);
@@ -280,8 +257,8 @@ export default function Home() {
     const newSession: ChatSession = { id: newId, title: 'New Chat', messages: [], createdAt: Date.now(), model: selectedModel };
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newId);
-    setIsSidebarOpen(false);
     setAttachment(null);
+    if(window.innerWidth < 768) setIsSidebarOpen(false);
     syncSessionToDb(newSession);
   }, [selectedModel, user, syncSessionToDb]);
 
@@ -471,9 +448,9 @@ export default function Home() {
       });
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
-        toast.info('Streaming stopped');
+        toast.info('Stopped.');
       } else {
-        toast.error('Connection error');
+        toast.error('Error generating response.');
       }
     } finally { setLoading(false); abortControllerRef.current = null; }
   };
@@ -633,7 +610,6 @@ export default function Home() {
             <div className="flex items-center gap-3">
                 <div className="w-9 h-9 relative bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-[1px]">
                 <div className={`w-full h-full rounded-[10px] flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-950' : 'bg-white'} overflow-hidden relative`}>
-                    {/* Fallback Icon Command */}
                     <div className="relative w-full h-full flex items-center justify-center">
                         <Image src="/logo.png" alt="Tawarln" fill className="object-contain p-1" onError={(e) => e.currentTarget.style.display = 'none'} />
                         <Command size={20} className="text-transparent bg-clip-text bg-gradient-to-br from-blue-500 to-purple-600 absolute" style={{ zIndex: -1 }} />
@@ -643,7 +619,6 @@ export default function Home() {
                 <span className={`text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text`}>Tawarln</span>
             </div>
             
-            {/* Tombol Close Sidebar (Mobile Only) */}
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
                 <PanelLeftClose size={20} />
             </button>
@@ -774,16 +749,16 @@ export default function Home() {
               <div key={index} className={`group py-6 ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
                 {msg.role === 'user' ? (
                     <div className="flex gap-3 max-w-[80%] flex-row-reverse">
-                        <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                            <UserIcon size={16} className="text-zinc-600 dark:text-zinc-400" />
+                        <div className="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0 text-white">
+                            <UserIcon size={16} />
                         </div>
-                        <div className={`px-5 py-3 rounded-2xl ${theme === 'dark' ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-800'}`}>
-                            <div className="prose dark:prose-invert prose-sm max-w-none text-[15px] leading-7">
+                        <div className="px-5 py-3 rounded-2xl bg-blue-600 text-white rounded-tr-sm">
+                            <div className="prose prose-invert prose-sm max-w-none text-[15px] leading-7">
                                 {renderMessageContent(msg.content)}
                             </div>
                             {!editingMessageIndex && (
                                 <div className="flex items-center justify-end gap-2 mt-2 opacity-0 group-hover:opacity-50 transition-opacity">
-                                    <button onClick={() => startEditMessage(index, msg.content as string)} className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><Edit2 size={12} /></button>
+                                    <button onClick={() => startEditMessage(index, msg.content as string)} className="p-1 hover:bg-white/10 rounded"><Edit2 size={12} /></button>
                                 </div>
                             )}
                         </div>
