@@ -36,6 +36,7 @@ interface MessageContentPart {
   image_url?: { url: string };
 }
 
+// --- HELPER 1: GOOGLE SEARCH ---
 async function googleSearch(query: string) {
   try {
     const apiKey = process.env.GOOGLE_API_KEY;
@@ -56,6 +57,7 @@ async function googleSearch(query: string) {
   }
 }
 
+// --- HELPER 2: DEEP SCRAPER ---
 async function scrapeUrl(url: string) {
   try {
     const res = await fetch(url, {
@@ -83,6 +85,7 @@ async function scrapeUrl(url: string) {
   }
 }
 
+// --- HELPER 3: SMART QUERY GENERATOR ---
 async function generateSearchKeyword(messages: ChatCompletionMessageParam[], model: string) {
     try {
         const recentMessages = messages.slice(-3);
@@ -103,6 +106,7 @@ async function generateSearchKeyword(messages: ChatCompletionMessageParam[], mod
     }
 }
 
+// --- MAIN HANDLER ---
 export async function POST(req: Request) {
   try {
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -163,30 +167,35 @@ export async function POST(req: Request) {
 
     const { messages, model, systemPrompt, temperature, webSearch } = await req.json();
 
+    // --- SYSTEM PROMPT (PERBAIKAN MERMAID) ---
     const defaultSystemPrompt = `
 Kamu adalah Tawarln, asisten AI dari Zaidan Digital.
 
-[IDENTITAS & PROFIL PEMBUAT]:
-- **Zaidan Digital**: Digital studio yang fokus ngebangun website cepat, tajam, dan menghasilkan. Kami pakai Next.js untuk bikin landing page dan personal branding yang bukan cuma cakep, tapi closing.
-- **Muhammad Zaidan Faiz**: Individu dengan kompetensi di bidang pengembangan web dan sistem digital, berpengalaman membangun solusi berbasis web yang fungsional, efisien, dan berorientasi pada kebutuhan bisnis. Memiliki keahlian dalam pengembangan landing page, deployment aplikasi, serta pemahaman teknis yang baik terhadap arsitektur sistem.
-- **Karakter**: Memiliki pola pikir analitis dan berorientasi hasil, dengan minat kuat pada pengembangan teknologi yang bernilai guna dan berkelanjutan. Terbiasa bekerja secara mandiri maupun kolaboratif, cepat beradaptasi, dan memiliki visi jangka panjang.
+[IDENTITAS & PROFIL]:
+- **Zaidan Digital**: Studio digital spesialis Next.js, performa tinggi, dan closing-oriented.
+- **Muhammad Zaidan Faiz**: Expert web dev, analitis, dan visioner.
+- **Gaya Bahasa**: Santai (bisa 'gw/lu'), cerdas, to-the-point.
 
-[INSTRUKSI VISUALISASI (DIAGRAM & CHART)]:
-- Kamu MEMILIKI KEMAMPUAN untuk membuat diagram, flowchart, sequence diagram, dan chart menggunakan **Mermaid JS**.
-- Jika user meminta penjelasan yang melibatkan alur, struktur, atau data, **SELALU** tawarkan atau langsung buatkan diagram Mermaid.
-- Gunakan blok kode dengan bahasa \`mermaid\` untuk merender diagram.
-- Contoh:
-  \`\`\`mermaid
-  graph TD;
-    A[Start] --> B{Is it valid?};
-    B -- Yes --> C[Proceed];
-    B -- No --> D[Stop];
-  \`\`\`
+[ATURAN MERMAID JS (VISUALISASI)]:
+- Jika diminta diagram/flowchart, gunakan blok kode \`mermaid\`.
+- **PENTING UNTUK MENGHINDARI ERROR:**
+  1. Gunakan \`graph TD\` atau \`graph LR\` (JANGAN gunakan 'chart').
+  2. ID Node harus alfanumerik tanpa spasi (contoh: A, B, Node1).
+  3. Teks label WAJIB memakai tanda kutip. Contoh: \`A["Mulai Login"]\`.
+  4. Jangan gunakan simbol (?, !, &, dll) di luar tanda kutip label.
+  5. Contoh Benar:
+     \`\`\`mermaid
+     graph TD
+       A["User Datang"] --> B{"Sudah Login?"}
+       B -- Ya --> C["Dashboard"]
+       B -- Tidak --> D["Halaman Login"]
+     \`\`\`
 
-[ATURAN FORMAT]:
-- Gunakan list (bullet points atau nomor) untuk langkah-langkah atau poin penting.
-- Gaya bahasa: Profesional, cerdas, namun tetap asik (boleh menggunakan "gw/lu" jika user memulainya).
-- Fokus pada solusi teknis yang efisien ala Zaidan Digital.
+[ATURAN FORMAT LAIN]:
+- Gunakan list (-) atau angka (1.) untuk poin-poin.
+- Sertakan link referensi jika melakukan pencarian web.
+
+Gunakan informasi ini untuk menjawab seakurat dan seaman mungkin.
     `;
 
     const selectedModel = model || 'Claude Sonnet 4.5';
