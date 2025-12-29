@@ -1,6 +1,8 @@
 'use client';
+
+// 1. Import useParams dari next/navigation
+import { useParams } from 'next/navigation'; 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation'; // ✅ INI KUNCINYA
 import { supabase } from '../../supabaseClient'; 
 import ReactMarkdown from 'react-markdown';
 import { Bot, User, AlertTriangle } from 'lucide-react';
@@ -26,8 +28,9 @@ interface SharedChatData {
     is_shared: boolean;
 }
 
-export default function SharedChat() { // ❌ Gak usah terima props params lagi
-    const params = useParams(); // ✅ Ambil ID pake Hook ini (Lebih stabil)
+export default function SharedChat() {
+    // 2. AMBIL ID DARI URL PAKE HOOK (Jurus Anti Gagal)
+    const params = useParams();
     const id = params?.id as string; // Pastikan jadi string
 
     const [chat, setChat] = useState<SharedChatData | null>(null);
@@ -35,12 +38,13 @@ export default function SharedChat() { // ❌ Gak usah terima props params lagi
     const [debugError, setDebugError] = useState<string | null>(null);
 
     useEffect(() => {
-        if (!id) return; // Tunggu sampe ID kebaca
+        // Kalau ID belum siap, jangan jalan dulu
+        if (!id) return;
 
         const fetchChat = async () => {
             console.log("Mencari ID:", id);
             
-            // Pake .maybeSingle() biar gak error 406
+            // Pake .maybeSingle() biar gak error system
             const { data, error } = await supabase
                 .from('chats')
                 .select('*')
@@ -51,11 +55,13 @@ export default function SharedChat() { // ❌ Gak usah terima props params lagi
                 console.error("Supabase Error:", error);
                 setDebugError(error.message);
             } else if (!data) {
-                setDebugError("Chat TIDAK DITEMUKAN di Database. ID mungkin salah atau belum tersimpan.");
+                setDebugError("Chat TIDAK DITEMUKAN di Database. ID mungkin salah.");
             } else {
                 const chatData = data as SharedChatData;
+                
+                // Cek status is_shared
                 if (!chatData.is_shared) {
-                    setDebugError("Chat ADA, tapi status 'is_shared' FALSE (Privasi tertutup).");
+                    setDebugError("Chat ADA, tapi status 'is_shared' masih FALSE (Private).");
                 } else {
                     setChat(chatData);
                 }
@@ -70,12 +76,12 @@ export default function SharedChat() { // ❌ Gak usah terima props params lagi
         <div className="flex h-screen items-center justify-center bg-white dark:bg-[#09090b] text-zinc-500">
             <div className="animate-pulse flex flex-col items-center">
                 <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin mb-2"></div>
-                Loading ID: {id}...
+                Loading ID: {id || '...'}
             </div>
         </div>
     );
 
-    // --- TAMPILAN ERROR ---
+    // --- TAMPILAN ERROR (DEBUG) ---
     if (!chat) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-white dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100">

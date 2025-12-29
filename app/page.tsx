@@ -12,13 +12,12 @@ import {
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
   Gamepad2, Plane, Music, Code2, HeartPulse, Lightbulb,
-  Eye, Code, Share2 // ✅ Added Share2 icon
+  Eye, Code, Share2
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
 import { User } from '@supabase/supabase-js';
 
-// --- CONSTANTS ---
 const MODELS = [
   { id: 'Claude Sonnet 4.5', name: 'Claude 4.5 Sonnet', desc: 'Best for Vision & Code' },
   { id: 'GLM 4.6', name: 'GLM 4.6', desc: 'Balanced' },
@@ -41,7 +40,6 @@ const ALL_SUGGESTIONS = [
   { icon: <Lightbulb size={18} />, text: "Ide startup berbasis AI", label: "Business" },
 ];
 
-// --- TYPES ---
 type VisionItem = { type: 'text' | 'image_url'; text?: string; image_url?: { url: string } };
 type VisionContent = Array<VisionItem>;
 type MessageContent = string | VisionContent;
@@ -76,14 +74,11 @@ interface TextItem {
   str: string;
 }
 
-// --- COMPONENTS ---
-
-// ✅ UPDATED CODE BLOCK COMPONENT (With Artifacts/Preview)
 interface CodeProps extends ComponentPropsWithoutRef<'code'> { inline?: boolean; }
 
 const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   const [isCopied, setIsCopied] = useState(false);
-  const [mode, setMode] = useState<'code' | 'preview'>('code'); // State buat switch tab
+  const [mode, setMode] = useState<'code' | 'preview'>('code'); 
   
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : 'text';
@@ -96,10 +91,8 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
     setTimeout(() => setIsCopied(false), 2000);
   };
 
-  // Handle Inline Code (e.g. `variable`)
   if (inline) return <code className="bg-zinc-100 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
 
-  // Cek apakah ini HTML/XML biar bisa dipreview
   const isHtml = language === 'html' || language === 'xml';
 
   return (
@@ -108,7 +101,6 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
         <div className="flex gap-2 items-center">
           <span className="uppercase font-semibold tracking-wider font-mono text-blue-500 dark:text-blue-400 py-1">{language}</span>
           
-          {/* TOMBOL SWITCH PREVIEW (Hanya muncul kalau bahasa HTML) */}
           {isHtml && (
             <div className="flex bg-zinc-200 dark:bg-zinc-800 rounded-md p-0.5 ml-2">
                 <button 
@@ -139,12 +131,11 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
                 <code className={`!bg-transparent ${className}`} {...props}>{children}</code>
              </div>
         ) : (
-            // IFRAME BUAT PREVIEW
             <div className="w-full h-[400px] bg-white border-none resize-y overflow-auto">
                 <iframe 
                     srcDoc={codeContent} 
                     className="w-full h-full border-none block" 
-                    sandbox="allow-scripts" // Aman dari serangan script berbahaya tapi script JS basic jalan
+                    sandbox="allow-scripts" 
                     title="Code Preview"
                 />
             </div>
@@ -154,7 +145,6 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   );
 };
 
-// --- APP ---
 export default function Home() {
   const [user, setUser] = useState<User | null>(null); 
   const [authLoading, setAuthLoading] = useState(true);
@@ -166,7 +156,6 @@ export default function Home() {
   const [loading, setLoading] = useState(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   
-  // UI States
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isModelMenuOpen, setIsModelMenuOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -177,12 +166,10 @@ export default function Home() {
   const [isWebSearchActive, setIsWebSearchActive] = useState(false);
   const [randomSuggestions, setRandomSuggestions] = useState<typeof ALL_SUGGESTIONS>([]);
   
-  // Config
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
   const [systemPrompt, setSystemPrompt] = useState('');
   const [temperature, setTemperature] = useState(0.7);
 
-  // Edit & Attach
   const [attachment, setAttachment] = useState<{ url: string; type: 'image' | 'file'; name: string; content?: string } | null>(null);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState('');
@@ -197,13 +184,10 @@ export default function Home() {
     return sessions.find(s => s.id === currentSessionId)?.messages || [];
   }, [sessions, currentSessionId]);
 
-  // Init
   useEffect(() => {
-    // 1. Acak Ide
     const shuffled = [...ALL_SUGGESTIONS].sort(() => 0.5 - Math.random());
     setRandomSuggestions(shuffled.slice(0, 4));
 
-    // 2. Auth Check
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       setUser(session?.user || null);
@@ -212,7 +196,6 @@ export default function Home() {
     checkUser();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => setUser(session?.user || null));
     
-    // 3. Theme
     const savedTheme = localStorage.getItem('tawarln_theme');
     if (savedTheme === 'light') setTheme('light');
     
@@ -230,7 +213,6 @@ export default function Home() {
     toast.success('Copied'); 
   }, []);
 
-  // DB Sync
   const syncSessionToDb = useCallback(async (session: ChatSession) => {
     if (!user) return;
     setIsSyncing(true);
@@ -246,21 +228,18 @@ export default function Home() {
     await supabase.from('chats').delete().eq('id', id);
   }, [user]);
 
-  // ✅ FITUR SHARE (New)
   const handleShareChat = async (session: ChatSession) => {
       if (!user) return;
       const toastId = toast.loading('Generating share link...');
       
       try {
-          // 1. Update Database
           const { error } = await supabase
               .from('chats')
-              .update({ is_shared: true }) // Pastikan kolom is_shared sudah ada di DB
+              .update({ is_shared: true })
               .eq('id', session.id);
           
           if (error) throw error;
 
-          // 2. Copy Link
           const shareUrl = `${window.location.origin}/share/${session.id}`;
           await navigator.clipboard.writeText(shareUrl);
           
@@ -273,14 +252,12 @@ export default function Home() {
       }
   };
 
-  // Model Change Logic
   useEffect(() => {
     if (currentSessionId) {
         const sess = sessions.find(s => s.id === currentSessionId);
         if (sess?.model) setSelectedModel(sess.model);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentSessionId]); 
+  }, [currentSessionId, sessions]); // ✅ Added sessions dependency
 
   const handleModelChange = (newModelId: string) => {
     setSelectedModel(newModelId); 
@@ -308,29 +285,49 @@ export default function Home() {
     syncSessionToDb(newSession);
   }, [selectedModel, user, syncSessionToDb]);
 
-  // Initial Fetch
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+        setSessions([]); 
+        return;
+    }
+
     const fetchChats = async () => {
       setIsSyncing(true);
-      const { data, error } = await supabase.from('chats').select('*').order('created_at', { ascending: false });
+      
+      const { data, error } = await supabase
+        .from('chats')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
       if (!error && data) {
-        const loadedSessions: ChatSession[] = (data as DatabaseChat[]).map((row) => ({ id: row.id, title: row.title, messages: row.messages, createdAt: row.created_at, model: row.model || MODELS[0].id }));
+        const loadedSessions: ChatSession[] = (data as DatabaseChat[]).map((row) => ({ 
+            id: row.id, 
+            title: row.title, 
+            messages: row.messages, 
+            createdAt: row.created_at, 
+            model: row.model || MODELS[0].id 
+        }));
         setSessions(loadedSessions);
-        if (loadedSessions.length > 0) setCurrentSessionId(loadedSessions[0].id);
-        else createNewChat();
-      } else { createNewChat(); }
+        
+        if (loadedSessions.length > 0) {
+            setCurrentSessionId(loadedSessions[0].id);
+        } else { 
+            createNewChat(); 
+        }
+      } else { 
+          createNewChat(); 
+      }
       setIsSyncing(false);
     };
+
     fetchChats();
-  }, [user, createNewChat]);
+  }, [user, createNewChat]); 
 
   useEffect(() => { localStorage.setItem('tawarln_settings', JSON.stringify({ systemPrompt, temperature })); }, [systemPrompt, temperature]);
   
-  // FIX SCROLL: Scroll ke bawah setiap kali pesan berubah
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [currentMessages, attachment]);
 
-  // PDF & File Logic
   const extractTextFromPdf = async (data: ArrayBuffer): Promise<string> => {
     const pdfjsLib = await import('pdfjs-dist');
     pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
@@ -368,7 +365,6 @@ export default function Home() {
     }
   };
 
-  // Actions
   const handleLogin = async () => {
     const { error } = await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: window.location.origin } });
     if (error) toast.error(error.message);
@@ -433,32 +429,41 @@ export default function Home() {
   const handleStreamingResponse = async (payload: ChatPayload, sessionId: string) => {
     setLoading(true);
     abortControllerRef.current = new AbortController();
+    
+    const initialBotMsg: Message = { role: 'assistant', content: '' };
+    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...s.messages, initialBotMsg] } : s));
+
     try {
       const res = await fetch('/api/chat', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload), signal: abortControllerRef.current.signal
       });
       if (!res.ok || !res.body) throw new Error(res.statusText);
-      const initialBotMsg: Message = { role: 'assistant', content: '' };
-      setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...s.messages, initialBotMsg] } : s));
+      
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let done = false;
       let streamedText = '';
+      
       while (!done) {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         const chunkValue = decoder.decode(value, { stream: true });
         streamedText += chunkValue;
+        
         setSessions(prev => prev.map(s => {
             if (s.id === sessionId) {
                 const newMsgs = [...s.messages];
-                newMsgs[newMsgs.length - 1] = { ...newMsgs[newMsgs.length - 1], content: streamedText };
+                newMsgs[newMsgs.length - 1] = { 
+                    role: 'assistant',
+                    content: streamedText 
+                };
                 return { ...s, messages: newMsgs };
             }
             return s;
         }));
       }
+      
       setSessions(prev => {
           const session = prev.find(s => s.id === sessionId);
           if (session) syncSessionToDb(session);
@@ -517,10 +522,12 @@ export default function Home() {
     setInput(''); setAttachment(null);
     const session = sessions.find(s => s.id === currentSessionId);
     const payload = [...(session?.messages || []).map(m => ({ role: m.role, content: m.content })), { role: 'user', content: apiContent }];
+    
     await handleStreamingResponse({ messages: payload, model: selectedModel, systemPrompt, temperature, webSearch: isWebSearchActive }, currentSessionId);
   };
 
   const handleStop = () => abortControllerRef.current?.abort();
+  
   const renderMessageContent = (content: MessageContent) => {
     if (typeof content === 'string') return <ReactMarkdown components={{ code: CodeBlock }}>{content}</ReactMarkdown>;
     return (
@@ -566,7 +573,6 @@ export default function Home() {
 
       {(activeMenuId || isModelMenuOpen || isProfileMenuOpen || isDeleteModalOpen) && <div className="fixed inset-0 z-[25]" onClick={closeAllMenus} />}
 
-      {/* MODAL DELETE */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
             <div className={`border rounded-2xl w-full max-w-sm p-6 shadow-2xl relative scale-100 ${theme === 'dark' ? 'bg-[#18181b] border-zinc-800' : 'bg-white border-zinc-200'}`}>
@@ -583,7 +589,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* SETTINGS MODAL */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4 animate-in fade-in">
             <div className={`border rounded-2xl w-full max-w-md p-6 relative ${theme === 'dark' ? 'bg-[#18181b] border-zinc-800' : 'bg-white border-zinc-200'}`}>
@@ -604,7 +609,6 @@ export default function Home() {
         </div>
       )}
 
-      {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 md:relative md:translate-x-0 backdrop-blur-xl ${theme === 'dark' ? 'bg-black/50 border-zinc-800' : 'bg-zinc-50/80 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full p-4">
           <div className="flex items-center gap-3 px-2 mb-6 mt-1">
@@ -629,10 +633,8 @@ export default function Home() {
                   {editingSessionId === s.id ? <form onSubmit={saveRename}><input autoFocus value={editTitle} onChange={(e) => setEditTitle(e.target.value)} onBlur={() => setEditingSessionId(null)} className="bg-transparent border border-blue-500 rounded px-1.5 py-0.5 w-full outline-none text-xs" /></form> : <span className="text-[13px]">{s.title}</span>}
                 </div>
                 <div className="pr-1 relative">
-                    {/* LOGIC TITIK TIGA: DI HP SELALU MUNCUL, DI PC MUNCUL PAS HOVER */}
                     <button onClick={(e) => { e.stopPropagation(); toggleMenu(s.id); }} className={`p-1.5 rounded-md transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 ${activeMenuId === s.id ? 'opacity-100 bg-zinc-200 dark:bg-white/10' : 'hover:bg-zinc-200 dark:hover:bg-white/10'}`}><MoreHorizontal size={14} /></button>
                     {activeMenuId === s.id && <div className={`absolute right-0 top-8 w-32 border rounded-lg shadow-xl py-1 z-50 overflow-hidden ${theme === 'dark' ? 'bg-[#1e1e1e] border-zinc-700' : 'bg-white border-zinc-200'}`}>
-                        {/* ✅ TOMBOL SHARE DI SIDEBAR */}
                         <button onClick={(e) => { e.stopPropagation(); handleShareChat(s); setActiveMenuId(null); }} className="flex items-center gap-2 px-3 py-2 text-xs w-full hover:bg-zinc-100 dark:hover:bg-white/5 text-blue-500"><Share2 size={12} /> Share</button>
                         <button onClick={(e) => startRename(e, s)} className="flex items-center gap-2 px-3 py-2 text-xs w-full hover:bg-zinc-100 dark:hover:bg-white/5"><Pencil size={12} /> Rename</button>
                         <button onClick={(e) => confirmDeleteChat(e, s.id)} className="flex items-center gap-2 px-3 py-2 text-xs text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 size={12} /> Delete</button>
@@ -644,9 +646,7 @@ export default function Home() {
         </div>
       </aside>
 
-      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
-        {/* HEADER */}
         <header className={`flex items-center justify-between px-4 py-3 z-[30] border-b ${theme === 'dark' ? 'bg-[#09090b] border-zinc-800' : 'bg-white border-zinc-200'}`}>
           <div className="flex items-center gap-2">
             <button onClick={() => setIsSidebarOpen(true)} className="md:hidden text-zinc-500 p-2 hover:bg-zinc-100 dark:hover:bg-white/5 rounded-lg"><Menu size={20} /></button>
@@ -667,7 +667,6 @@ export default function Home() {
           </div>
           
           <div className="relative flex gap-2">
-             {/* ✅ TOMBOL SHARE DI HEADER */}
              {currentSessionId && (
                 <button 
                   onClick={() => { const s = sessions.find(s => s.id === currentSessionId); if(s) handleShareChat(s); }}
@@ -688,11 +687,9 @@ export default function Home() {
           </div>
         </header>
 
-        {/* CHAT AREA (NATIVE BROWSER SCROLL) */}
         <div className="flex-1 overflow-y-auto">
             <div className={`max-w-[768px] mx-auto px-4 pb-[150px] pt-8 min-h-full flex flex-col ${currentMessages.length === 0 ? 'justify-center' : ''}`}>
             
-            {/* EMPTY STATE (CENTERED) */}
             {currentMessages.length === 0 && (
                 <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 py-10">
                     <div className="w-16 h-16 rounded-2xl flex items-center justify-center mb-6 bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-zinc-200 dark:border-zinc-800 shadow-sm">
@@ -714,7 +711,6 @@ export default function Home() {
                 </div>
             )}
             
-            {/* CHAT BUBBLES */}
             {currentMessages.map((msg, index) => (
               <div key={index} className="py-6 group animate-in fade-in slide-in-from-bottom-2 duration-300">
                 <div className="flex gap-4 md:gap-6">
@@ -762,11 +758,9 @@ export default function Home() {
                     </div>
                 </div>
             )}
-            {/* SPALER AGAR CHAT TERAKHIR TIDAK TERTUTUP INPUT */}
             <div ref={messagesEndRef} className="h-4" />
         </div></div>
 
-        {/* INPUT AREA (FIXED BOTTOM with BLUR) */}
         <div className={`absolute bottom-0 left-0 w-full pt-4 pb-6 px-4 bg-gradient-to-t ${theme === 'dark' ? 'from-[#09090b] via-[#09090b]/90 to-transparent' : 'from-white via-white/90 to-transparent'} backdrop-blur-sm`}>
             <div className="max-w-[768px] mx-auto">
             {attachment && (
