@@ -4,14 +4,15 @@ import { useState, useRef, useEffect, ComponentPropsWithoutRef, useCallback, use
 import ReactMarkdown from 'react-markdown';
 import TextareaAutosize from 'react-textarea-autosize';
 import Image from 'next/image';
+import mermaid from 'mermaid';
 import { 
   Send, Trash2, Copy, Check, Bot, User as UserIcon,
-  Terminal, Sparkles, Coffee, BookOpen, 
+  Terminal, Sparkles, BookOpen, 
   Plus, ChevronDown,
   X, FileCode, Pencil, MoreHorizontal, Sliders, LogOut, 
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
-  Gamepad2, Plane, Code2, Lightbulb,
+  Plane, Code2, Lightbulb,
   Eye, Code, Share2, Sparkle, PanelLeftClose, PanelLeftOpen, Command, StopCircle
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
@@ -29,14 +30,12 @@ const MODELS = [
 ];
 
 const ALL_SUGGESTIONS = [
-  { icon: <Terminal size={16} />, text: "Script Python login system", label: "Coding" },
+  { icon: <Terminal size={16} />, text: "Buat Flowchart Login System", label: "Architecture" },
   { icon: <Sparkles size={16} />, text: "Analisa gambar arsitektur", label: "Vision" },
-  { icon: <BookOpen size={16} />, text: "Jelaskan konsep Quantum", label: "Science" },
-  { icon: <Coffee size={16} />, text: "Resep pasta 15 menit", label: "Lifestyle" },
-  { icon: <Plane size={16} />, text: "Itinerary Jepang 7 hari", label: "Travel" },
-  { icon: <Code2 size={16} />, text: "Debug error React Hydration", label: "Programming" },
+  { icon: <BookOpen size={16} />, text: "Jelaskan konsep Microservices", label: "System Design" },
+  { icon: <Code2 size={16} />, text: "ERD Database E-Commerce", label: "Database" },
+  { icon: <Plane size={16} />, text: "Sequence Diagram API Payment", label: "Backend" }, // Plane icon dipakai disini
   { icon: <Lightbulb size={16} />, text: "Ide bisnis SaaS B2B", label: "Business" },
-  { icon: <Gamepad2 size={16} />, text: "Lore Elden Ring explained", label: "Gaming" },
 ];
 
 // --- TYPES ---
@@ -74,12 +73,57 @@ interface TextItem {
   str: string;
 }
 
-// --- COMPONENTS ---
+// --- COMPONENT: MERMAID RENDERER ---
+const Mermaid = ({ chart }: { chart: string }) => {
+  const [svg, setSvg] = useState<string>('');
+  const [isError, setIsError] = useState(false);
+
+  useEffect(() => {
+    mermaid.initialize({ 
+        startOnLoad: false, 
+        theme: 'dark',
+        securityLevel: 'loose',
+        fontFamily: 'inherit'
+    });
+
+    const renderChart = async () => {
+      try {
+        const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
+        const { svg } = await mermaid.render(id, chart);
+        setSvg(svg);
+        setIsError(false);
+      } catch (error) {
+        console.error('Mermaid Error:', error);
+        setIsError(true);
+      }
+    };
+
+    renderChart();
+  }, [chart]);
+
+  if (isError) {
+    return (
+      <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg text-red-500 text-xs font-mono">
+        Failed to render diagram. Syntax might be incorrect.
+        <pre className="mt-2 text-zinc-500 whitespace-pre-wrap">{chart}</pre>
+      </div>
+    );
+  }
+
+  return (
+    <div className="my-4 overflow-x-auto bg-white dark:bg-[#1e1e24] p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 flex justify-center items-center min-h-[100px]">
+        {svg ? <div dangerouslySetInnerHTML={{ __html: svg }} /> : <div className="text-xs text-zinc-500 animate-pulse">Rendering diagram...</div>}
+    </div>
+  );
+};
+
+// --- COMPONENT: CODE BLOCK ---
 interface CodeProps extends ComponentPropsWithoutRef<'code'> { inline?: boolean; }
 
 const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   const [isCopied, setIsCopied] = useState(false);
   const [mode, setMode] = useState<'code' | 'preview'>('code'); 
+  
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : 'text';
   const codeContent = String(children).replace(/\n$/, '');
@@ -90,6 +134,11 @@ const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
     toast.success('Code copied!');
     setTimeout(() => setIsCopied(false), 2000);
   };
+
+  // ✅ DETEKSI BAHASA MERMAID
+  if (!inline && language === 'mermaid') {
+    return <Mermaid chart={codeContent} />;
+  }
 
   if (inline) return <code className="bg-zinc-200 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
   
@@ -424,15 +473,9 @@ export default function Home() {
     setLoading(true);
     abortControllerRef.current = new AbortController();
     
-    // Add placeholder bot message immediately
+    // Add placeholder bot message immediately to prevent jumping
     const initialBotMsg: Message = { role: 'assistant', content: '' };
-    
-    setSessions(prev => prev.map(s => {
-        if (s.id === sessionId) {
-            return { ...s, messages: [...newMessagesState, initialBotMsg] };
-        }
-        return s;
-    }));
+    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...newMessagesState, initialBotMsg] } : s));
 
     try {
       const res = await fetch('/api/chat', {
@@ -473,7 +516,7 @@ export default function Home() {
       });
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
-        // Handled by handleStop
+        // Handled by handleStop toast
       } else {
         toast.error('Error generating response.');
       }
