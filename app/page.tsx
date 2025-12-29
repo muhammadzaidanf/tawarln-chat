@@ -12,8 +12,7 @@ import {
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
   Gamepad2, Plane, Music, Code2, HeartPulse, Lightbulb,
-  // ✅ NEW IMPORTS ADDED HERE
-  Eye, Code
+  Eye, Code, Share2 // ✅ Added Share2 icon
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
@@ -246,6 +245,33 @@ export default function Home() {
     if (!user) return;
     await supabase.from('chats').delete().eq('id', id);
   }, [user]);
+
+  // ✅ FITUR SHARE (New)
+  const handleShareChat = async (session: ChatSession) => {
+      if (!user) return;
+      const toastId = toast.loading('Generating share link...');
+      
+      try {
+          // 1. Update Database
+          const { error } = await supabase
+              .from('chats')
+              .update({ is_shared: true }) // Pastikan kolom is_shared sudah ada di DB
+              .eq('id', session.id);
+          
+          if (error) throw error;
+
+          // 2. Copy Link
+          const shareUrl = `${window.location.origin}/share/${session.id}`;
+          await navigator.clipboard.writeText(shareUrl);
+          
+          toast.dismiss(toastId);
+          toast.success('Link copied to clipboard!');
+      } catch (err) {
+          toast.dismiss(toastId);
+          toast.error('Failed to create share link.');
+          console.error(err);
+      }
+  };
 
   // Model Change Logic
   useEffect(() => {
@@ -606,6 +632,8 @@ export default function Home() {
                     {/* LOGIC TITIK TIGA: DI HP SELALU MUNCUL, DI PC MUNCUL PAS HOVER */}
                     <button onClick={(e) => { e.stopPropagation(); toggleMenu(s.id); }} className={`p-1.5 rounded-md transition-opacity opacity-100 md:opacity-0 md:group-hover:opacity-100 ${activeMenuId === s.id ? 'opacity-100 bg-zinc-200 dark:bg-white/10' : 'hover:bg-zinc-200 dark:hover:bg-white/10'}`}><MoreHorizontal size={14} /></button>
                     {activeMenuId === s.id && <div className={`absolute right-0 top-8 w-32 border rounded-lg shadow-xl py-1 z-50 overflow-hidden ${theme === 'dark' ? 'bg-[#1e1e1e] border-zinc-700' : 'bg-white border-zinc-200'}`}>
+                        {/* ✅ TOMBOL SHARE DI SIDEBAR */}
+                        <button onClick={(e) => { e.stopPropagation(); handleShareChat(s); setActiveMenuId(null); }} className="flex items-center gap-2 px-3 py-2 text-xs w-full hover:bg-zinc-100 dark:hover:bg-white/5 text-blue-500"><Share2 size={12} /> Share</button>
                         <button onClick={(e) => startRename(e, s)} className="flex items-center gap-2 px-3 py-2 text-xs w-full hover:bg-zinc-100 dark:hover:bg-white/5"><Pencil size={12} /> Rename</button>
                         <button onClick={(e) => confirmDeleteChat(e, s.id)} className="flex items-center gap-2 px-3 py-2 text-xs text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/20"><Trash2 size={12} /> Delete</button>
                     </div>}
@@ -638,7 +666,17 @@ export default function Home() {
             </div>
           </div>
           
-          <div className="relative">
+          <div className="relative flex gap-2">
+             {/* ✅ TOMBOL SHARE DI HEADER */}
+             {currentSessionId && (
+                <button 
+                  onClick={() => { const s = sessions.find(s => s.id === currentSessionId); if(s) handleShareChat(s); }}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 transition-colors"
+                >
+                    <Share2 size={14} /> Share
+                </button>
+             )}
+
             <button onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs hover:ring-2 ring-offset-2 ring-offset-black ring-blue-500 transition-all">{user?.email?.slice(0,2).toUpperCase()}</button>
             {isProfileMenuOpen && <div className={`absolute right-0 top-10 w-56 border rounded-xl shadow-2xl py-1 z-50 animate-in fade-in slide-in-from-top-2 ${theme === 'dark' ? 'bg-[#18181b] border-zinc-700' : 'bg-white border-zinc-200'}`}>
                 <div className="px-4 py-3 border-b border-zinc-100 dark:border-white/5 text-xs font-medium text-zinc-500 truncate">{user?.email}</div>
