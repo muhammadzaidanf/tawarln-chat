@@ -36,6 +36,7 @@ interface MessageContentPart {
   image_url?: { url: string };
 }
 
+// --- HELPER 1: GOOGLE SEARCH ---
 async function googleSearch(query: string) {
   try {
     const apiKey = process.env.GOOGLE_API_KEY;
@@ -56,6 +57,7 @@ async function googleSearch(query: string) {
   }
 }
 
+// --- HELPER 2: DEEP SCRAPER ---
 async function scrapeUrl(url: string) {
   try {
     const res = await fetch(url, {
@@ -83,6 +85,7 @@ async function scrapeUrl(url: string) {
   }
 }
 
+// --- HELPER 3: SMART QUERY GENERATOR ---
 async function generateSearchKeyword(messages: ChatCompletionMessageParam[], model: string) {
     try {
         const recentMessages = messages.slice(-3);
@@ -103,6 +106,7 @@ async function generateSearchKeyword(messages: ChatCompletionMessageParam[], mod
     }
 }
 
+// --- MAIN HANDLER ---
 export async function POST(req: Request) {
   try {
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -163,8 +167,34 @@ export async function POST(req: Request) {
 
     const { messages, model, systemPrompt, temperature, webSearch } = await req.json();
 
+    // --- SYSTEM PROMPT CONFIGURATION ---
+    const defaultSystemPrompt = `
+Kamu adalah Tawarln, asisten AI dari Zaidan Digital.
+
+[ATURAN FORMAT]:
+- Jika jawaban kamu mengandung daftar, langkah-langkah, atau poin penting, WAJIB menggunakan format list (bullet point '-' atau penomoran '1.').
+- Jangan menulis paragraf panjang tanpa jeda jika sedang menjelaskan poin-poin.
+
+[IDENTITAS KAMU]:
+- Pembuat: Muhammad Zaidan Faiz (Zaidan Digital).
+- Peran: Asisten AI cerdas, ringkas, dan solutif.
+
+[TENTANG ZAIDAN DIGITAL]:
+- Zaidan Digital adalah digital studio yang fokus ngebangun website cepat, tajam, dan menghasilkan.
+- Tech Stack: Next.js (untuk landing page dan personal branding yang closing-oriented).
+- Motto: Bukan cuma cakep, tapi closing.
+
+[TENTANG MUHAMMAD ZAIDAN FAIZ]:
+- Expert di pengembangan web & sistem digital.
+- Berpengalaman membangun solusi web fungsional, efisien, dan berorientasi bisnis.
+- Keahlian: Landing page, deployment aplikasi, arsitektur sistem.
+- Karakter: Analitis, berorientasi hasil, adaptif, dan bervisi jangka panjang dalam membangun produk digital.
+
+Gunakan informasi ini untuk menjawab pertanyaan user dengan gaya bahasa yang profesional namun tetap asik.
+    `;
+
     const selectedModel = model || 'Claude Sonnet 4.5';
-    let finalSystemPrompt = systemPrompt || 'Kamu adalah Tawarln, asisten AI yang cerdas, ringkas, dan sangat membantu.';
+    let finalSystemPrompt = systemPrompt || defaultSystemPrompt.trim();
     const finalTemp = temperature !== undefined ? parseFloat(temperature) : 0.7;
 
     if (userMemory) {
@@ -193,6 +223,7 @@ export async function POST(req: Request) {
     const urlRegex = /(https?:\/\/[^\s]+)/g;
     const urls = userQuery.match(urlRegex);
 
+    // 1. Scrape Link
     if (urls && urls.length > 0) {
         const targetUrl = urls[0];
         const scrapedContent = await scrapeUrl(targetUrl);
@@ -213,7 +244,9 @@ ${userQuery}`;
                 content: injectedContent
             };
         }
-    } else if (webSearch) {
+    } 
+    // 2. Google Search
+    else if (webSearch) {
         const optimizedKeyword = await generateSearchKeyword(messages, selectedModel);
         const finalSearchQuery = optimizedKeyword || userQuery;
 

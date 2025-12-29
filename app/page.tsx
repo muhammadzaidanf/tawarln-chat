@@ -12,7 +12,7 @@ import {
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
   Gamepad2, Plane, Code2, Lightbulb,
-  Eye, Code, Share2, Sparkle, PanelLeftClose, PanelLeftOpen, Command
+  Eye, Code, Share2, Sparkle, PanelLeftClose, PanelLeftOpen, Command, StopCircle
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
@@ -80,7 +80,6 @@ interface CodeProps extends ComponentPropsWithoutRef<'code'> { inline?: boolean;
 const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   const [isCopied, setIsCopied] = useState(false);
   const [mode, setMode] = useState<'code' | 'preview'>('code'); 
-  
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : 'text';
   const codeContent = String(children).replace(/\n$/, '');
@@ -412,6 +411,7 @@ export default function Home() {
     else { toast.error('Cannot edit image messages'); }
   };
 
+  // ✅ FUNGSI STOP: Digunakan di tombol floating
   const handleStop = () => {
     if (abortControllerRef.current) {
         abortControllerRef.current.abort();
@@ -420,13 +420,19 @@ export default function Home() {
     }
   };
 
-  const handleStreamingResponse = async (payload: ChatPayload, sessionId: string) => {
+  const handleStreamingResponse = async (payload: ChatPayload, sessionId: string, newMessagesState: Message[]) => {
     setLoading(true);
     abortControllerRef.current = new AbortController();
     
-    // Add placeholder bot message immediately to prevent jumping
+    // Add placeholder bot message immediately
     const initialBotMsg: Message = { role: 'assistant', content: '' };
-    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...s.messages, initialBotMsg] } : s));
+    
+    setSessions(prev => prev.map(s => {
+        if (s.id === sessionId) {
+            return { ...s, messages: [...newMessagesState, initialBotMsg] };
+        }
+        return s;
+    }));
 
     try {
       const res = await fetch('/api/chat', {
@@ -448,12 +454,13 @@ export default function Home() {
         
         setSessions(prev => prev.map(s => {
             if (s.id === sessionId) {
-                const newMsgs = [...s.messages];
-                newMsgs[newMsgs.length - 1] = { 
-                    role: 'assistant',
+                const updatedMsgs = [...s.messages];
+                const lastIdx = updatedMsgs.length - 1;
+                updatedMsgs[lastIdx] = { 
+                    ...updatedMsgs[lastIdx],
                     content: streamedText 
                 };
-                return { ...s, messages: newMsgs };
+                return { ...s, messages: updatedMsgs };
             }
             return s;
         }));
@@ -466,7 +473,7 @@ export default function Home() {
       });
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
-        // Handled by handleStop toast
+        // Handled by handleStop
       } else {
         toast.error('Error generating response.');
       }
@@ -479,10 +486,13 @@ export default function Home() {
     const keptMessages = currentHist.slice(0, editingMessageIndex);
     const newUserMsg: Message = { role: 'user', content: editingMessageText };
     const newMessages = [...keptMessages, newUserMsg];
+    
     setSessions(prev => prev.map(s => s.id === currentSessionId ? { ...s, messages: newMessages } : s));
     setEditingMessageIndex(null);
+
     const apiPayload: ChatPayload = { messages: newMessages.map(m => ({ role: m.role, content: m.content })), model: selectedModel, systemPrompt, temperature, webSearch: isWebSearchActive };
-    await handleStreamingResponse(apiPayload, currentSessionId);
+    
+    await handleStreamingResponse(apiPayload, currentSessionId, newMessages);
   };
 
   const sendMessage = async (text: string) => {
@@ -504,10 +514,15 @@ export default function Home() {
 
     const userMsg: Message = { role: 'user', content: userContent };
     
+    const currentSession = sessions.find(s => s.id === currentSessionId);
+    const currentHistory = currentSession?.messages || [];
+    
+    const newMessagesWithUser = [...currentHistory, userMsg];
+
     setSessions(prev => prev.map(session => {
         if (session.id === currentSessionId) {
             const newTitle = session.messages.length === 0 ? (typeof userContent === 'string' ? userContent.slice(0,30) : 'File Analysis') : session.title;
-            const updatedSession = { ...session, title: newTitle, messages: [...session.messages, userMsg], model: selectedModel };
+            const updatedSession = { ...session, title: newTitle, messages: newMessagesWithUser, model: selectedModel };
             syncSessionToDb(updatedSession);
             return updatedSession;
         }
@@ -515,10 +530,10 @@ export default function Home() {
     }));
 
     setInput(''); setAttachment(null);
-    const session = sessions.find(s => s.id === currentSessionId);
-    const payload = [...(session?.messages || []).map(m => ({ role: m.role, content: m.content })), { role: 'user', content: apiContent }];
     
-    await handleStreamingResponse({ messages: payload, model: selectedModel, systemPrompt, temperature, webSearch: isWebSearchActive }, currentSessionId);
+    const payload = [...currentHistory.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: apiContent }];
+    
+    await handleStreamingResponse({ messages: payload, model: selectedModel, systemPrompt, temperature, webSearch: isWebSearchActive }, currentSessionId, newMessagesWithUser);
   };
 
   const renderMessageContent = (content: MessageContent) => {
@@ -798,8 +813,6 @@ export default function Home() {
                                             <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></div>
                                             <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-150"></div>
                                             <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-300"></div>
-                                            {/* TOMBOL STOP LOADING */}
-                                            <button onClick={handleStop} className="ml-4 text-xs text-zinc-400 hover:text-red-500 transition-colors">Stop</button>
                                         </div>
                                     )}
                                 </div>
@@ -828,6 +841,18 @@ export default function Home() {
 
         <div className="absolute bottom-6 left-0 w-full px-4">
             <div className="max-w-[768px] mx-auto">
+            {/* FLOATING STOP BUTTON - HANYA MUNCUL SAAT LOADING */}
+            {loading && (
+                <div className="flex justify-center mb-4 animate-in fade-in slide-in-from-bottom-2">
+                    <button 
+                        onClick={handleStop}
+                        className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black px-4 py-2 rounded-full text-xs font-medium shadow-lg flex items-center gap-2 hover:opacity-90 transition-all border border-zinc-700 dark:border-zinc-300"
+                    >
+                        <StopCircle size={14} className="animate-pulse text-red-500" /> Stop Generating
+                    </button>
+                </div>
+            )}
+
             {attachment && (
               <div className={`mb-3 p-3 border rounded-2xl w-fit flex items-center gap-3 animate-in slide-in-from-bottom-2 shadow-xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
                 {attachment.type === 'image' ? (
