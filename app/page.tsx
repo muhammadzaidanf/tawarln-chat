@@ -11,13 +11,14 @@ import {
   X, FileCode, Pencil, MoreHorizontal, Sliders, LogOut, 
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
-  Gamepad2, Plane, Code2, Lightbulb,
-  Eye, Code, Share2, Sparkle,  PanelLeftClose, PanelLeftOpen
+  Gamepad2, Plane,  Code2, Lightbulb,
+  Eye, Code, Share2, Sparkle, Command, PanelLeftClose, PanelLeftOpen, 
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
 import { User } from '@supabase/supabase-js';
 
+// --- CONSTANTS ---
 const MODELS = [
   { id: 'Claude Sonnet 4.5', name: 'Claude 4.5 Sonnet', desc: 'Superior Reasoning & Code' },
   { id: 'GLM 4.6', name: 'GLM 4.6', desc: 'Balanced Performance' },
@@ -38,6 +39,7 @@ const ALL_SUGGESTIONS = [
   { icon: <Gamepad2 size={16} />, text: "Lore Elden Ring explained", label: "Gaming" },
 ];
 
+// --- TYPES ---
 type VisionItem = { type: 'text' | 'image_url'; text?: string; image_url?: { url: string } };
 type VisionContent = Array<VisionItem>;
 type MessageContent = string | VisionContent;
@@ -278,6 +280,7 @@ export default function Home() {
     const newSession: ChatSession = { id: newId, title: 'New Chat', messages: [], createdAt: Date.now(), model: selectedModel };
     setSessions(prev => [newSession, ...prev]);
     setCurrentSessionId(newId);
+    setIsSidebarOpen(false);
     setAttachment(null);
     syncSessionToDb(newSession);
   }, [selectedModel, user, syncSessionToDb]);
@@ -615,22 +618,32 @@ export default function Home() {
         </div>
       )}
 
-      {/* SIDEBAR DENGAN TOGGLE */}
-      <aside className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 md:relative md:translate-x-0 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      {/* SIDEBAR FIXED */}
+      <aside 
+        className={`
+            fixed inset-y-0 left-0 z-40 
+            w-[280px] border-r transform transition-transform duration-300 
+            ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'}
+            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        `}
+      >
         <div className="flex flex-col h-full p-4 relative">
           
           <div className="flex items-center justify-between px-3 mb-8 mt-2">
             <div className="flex items-center gap-3">
                 <div className="w-9 h-9 relative bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-[1px]">
                 <div className={`w-full h-full rounded-[10px] flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-950' : 'bg-white'} overflow-hidden relative`}>
-                    {/* LOGO: Pake image kalau ada, kalau error pake icon Command */}
-                    <Image src="/logo.png" alt="Tawarln Logo" width={24} height={24} className="object-contain" />
+                    {/* Fallback Icon Command */}
+                    <div className="relative w-full h-full flex items-center justify-center">
+                        <Image src="/logo.png" alt="Tawarln" fill className="object-contain p-1" onError={(e) => e.currentTarget.style.display = 'none'} />
+                        <Command size={20} className="text-transparent bg-clip-text bg-gradient-to-br from-blue-500 to-purple-600 absolute" style={{ zIndex: -1 }} />
+                    </div>
                 </div>
                 </div>
                 <span className={`text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text`}>Tawarln</span>
             </div>
             
-            {/* TOMBOL CLOSE SIDEBAR (Hanya muncul di Mobile/Tablet) */}
+            {/* Tombol Close Sidebar (Mobile Only) */}
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
                 <PanelLeftClose size={20} />
             </button>
@@ -689,12 +702,17 @@ export default function Home() {
         </div>
       </aside>
 
-      <main className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
+      {/* MAIN CONTENT - ADJUST MARGIN LEFT WHEN SIDEBAR OPEN */}
+      <main className={`flex-1 flex flex-col relative w-full h-full overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-[280px]' : 'md:ml-0'}`}>
         <header className={`flex items-center justify-between px-6 py-4 z-[30] backdrop-blur-md absolute top-0 w-full ${theme === 'dark' ? 'bg-zinc-950/80' : 'bg-white/80'}`}>
           <div className="flex items-center gap-2">
             
-            {/* TOMBOL TOGGLE SIDEBAR (Desktop & Mobile) */}
-            <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg transition-colors">
+            {/* TOGGLE BUTTON: Always visible */}
+            <button 
+                onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+                className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'}`}
+                title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
+            >
                 {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
             </button>
 
