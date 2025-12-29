@@ -6,8 +6,6 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import type { ChatCompletionCreateParamsStreaming } from 'openai/resources/index.mjs';
 
-// --- KONFIGURASI ---
-
 const client = new OpenAI({
   apiKey: process.env.KOLOSAL_API_KEY,
   baseURL: 'https://api.kolosal.ai/v1',
@@ -25,7 +23,6 @@ const ratelimit = redis
     })
   : null;
 
-// --- INTERFACES ---
 interface GoogleSearchItem {
   title: string;
   link: string;
@@ -38,68 +35,37 @@ interface MessageContentPart {
   image_url?: { url: string };
 }
 
-// --- HELPER FUNCTION: GOOGLE SEARCH ---
 async function googleSearch(query: string) {
   try {
     const apiKey = process.env.GOOGLE_API_KEY;
     const cx = process.env.GOOGLE_CX_ID;
     
-    // Log query ke Vercel buat monitoring
-    console.log(`[GoogleSearch] Query: "${query}"`);
-
-    if (!apiKey || !cx) {
-        console.error("[GoogleSearch] Missing API Key or CX ID");
-        return null;
-    }
+    if (!apiKey || !cx) return null;
 
     const res = await fetch(`https://www.googleapis.com/customsearch/v1?key=${apiKey}&cx=${cx}&q=${encodeURIComponent(query)}`);
     const data = await res.json();
 
-    if (data.error) {
-        console.error("[GoogleSearch] API Error:", JSON.stringify(data.error, null, 2));
-        return null;
-    }
-
-    if (!data.items) return null;
+    if (data.error || !data.items) return null;
 
     return data.items.slice(0, 3).map((item: GoogleSearchItem) => 
       `Title: ${item.title}\nLink: ${item.link}\nSnippet: ${item.snippet}`
     ).join('\n\n');
-  } catch (error) {
-    console.error("[GoogleSearch] Exception:", error);
+  } catch {
     return null;
   }
 }
 
-// --- MAIN HANDLER ---
 export async function POST(req: Request) {
   try {
-    // ---------------------------------------------------------
-    // DEBUGGING SECTION (Cek Log Vercel kalau error 401)
-    // ---------------------------------------------------------
-    console.log("[DEBUG] Starting Chat API...");
-    
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-    // Cek Env Vars Vercel
     if (!sbUrl || !sbKey) {
-        console.error("[CRITICAL] Supabase Env Vars MISSING in Vercel!");
-        return NextResponse.json({ error: 'Server Config Error: Supabase URL/Key missing.' }, { status: 500 });
+        return NextResponse.json({ error: 'Server Config Error' }, { status: 500 });
     }
 
-    const cookieStore = await cookies(); // Pakai await!
-    const allCookies = cookieStore.getAll();
+    const cookieStore = await cookies();
     
-    // Cek keberadaan cookie auth supabase
-    const hasAuthCookie = allCookies.some(c => c.name.includes('sb-') && c.name.includes('-auth-token'));
-    
-    console.log(`[DEBUG] Cookies found: ${allCookies.length}`);
-    console.log(`[DEBUG] Has Supabase Auth Cookie: ${hasAuthCookie ? 'YES' : 'NO'}`);
-
-    // ---------------------------------------------------------
-    // SECURITY LAYER 1: Server-Side Auth Check
-    // ---------------------------------------------------------
     const supabase = createServerClient(
       sbUrl,
       sbKey,
@@ -116,42 +82,48 @@ export async function POST(req: Request) {
       }
     );
 
-    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-
-    if (sessionError) {
-        console.error("[DEBUG] Supabase Session Error:", sessionError.message);
-    }
+    const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
-      console.error("[DEBUG] Session is NULL. User not recognized.");
-      return NextResponse.json({ error: 'Unauthorized: Harap login terlebih dahulu.' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const userId = session.user.id; 
-    console.log(`[DEBUG] User Authenticated: ${userId}`);
+    let userMemory = '';
 
-    // ---------------------------------------------------------
-    // SECURITY LAYER 2: Rate Limiting (Upstash)
-    // ---------------------------------------------------------
+    try {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('bio')
+            .eq('id', userId)
+            .single();
+        
+        if (profile?.bio) {
+            userMemory = profile.bio;
+        }
+    } catch {
+        
+    }
+
     if (ratelimit) {
       const { success, reset } = await ratelimit.limit(userId);
-      
       if (!success) {
         return NextResponse.json(
-          { error: 'Terlalu banyak request. Santai dulu bang!' }, 
+          { error: 'Too many requests' }, 
           { status: 429, headers: { 'Retry-After': reset.toString() } }
         );
       }
     }
 
-    // ---------------------------------------------------------
-    // DATA PROCESSING
-    // ---------------------------------------------------------
     const { messages, model, systemPrompt, temperature, webSearch } = await req.json();
 
     const selectedModel = model || 'Claude Sonnet 4.5';
-    const finalSystemPrompt = systemPrompt || 'Kamu adalah Tawarln, asisten AI yang cerdas, ringkas, dan sangat membantu.';
+    let finalSystemPrompt = systemPrompt || 'Kamu adalah Tawarln, asisten AI yang cerdas, ringkas, dan sangat membantu.';
     const finalTemp = temperature !== undefined ? parseFloat(temperature) : 0.7;
+
+    if (userMemory) {
+        finalSystemPrompt += `\n\n[INGATAN TENTANG USER]:\n${userMemory}\n(Gunakan informasi ini untuk mempersonalisasi jawaban, tapi jangan mengulanginya secara eksplisit kecuali diminta).`;
+    }
 
     const lastMessage = messages[messages.length - 1];
     let userQuery = '';
@@ -167,16 +139,10 @@ export async function POST(req: Request) {
     
     if (!userQuery) userQuery = "User sent an image/file without text";
 
-    // ---------------------------------------------------------
-    // SECURITY LAYER 3: Input Validation
-    // ---------------------------------------------------------
     if (userQuery.length > 2000) {
-        return NextResponse.json({ error: 'Pesan terlalu panjang (Max 2000 karakter).' }, { status: 400 });
+        return NextResponse.json({ error: 'Message too long' }, { status: 400 });
     }
 
-    // ---------------------------------------------------------
-    // SEARCH & INJECTION LOGIC
-    // ---------------------------------------------------------
     const finalMessages = [...messages];
 
     if (webSearch) {
@@ -202,13 +168,10 @@ ${userQuery}`;
       }
     }
 
-    // ---------------------------------------------------------
-    // OPENAI STREAMING
-    // ---------------------------------------------------------
     const body: ChatCompletionCreateParamsStreaming & Record<string, unknown> = {
       model: selectedModel,
       messages: [
-        { role: 'system', content: finalSystemPrompt },
+        { role: 'system', content: finalSystemPrompt }, 
         ...finalMessages 
       ],
       temperature: finalTemp,
@@ -241,7 +204,7 @@ ${userQuery}`;
     });
 
   } catch (error) {
-    console.error('[Backend] Critical Error:', error);
-    return NextResponse.json({ error: 'Server error bos.' }, { status: 500 });
+    console.error(error);
+    return NextResponse.json({ error: 'Server error' }, { status: 500 });
   }
 }

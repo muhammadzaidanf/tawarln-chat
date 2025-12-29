@@ -11,7 +11,9 @@ import {
   X, FileCode, Pencil, MoreHorizontal, Sliders, LogOut, 
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
-  Gamepad2, Plane, Music, Code2, HeartPulse, Lightbulb
+  Gamepad2, Plane, Music, Code2, HeartPulse, Lightbulb,
+  // ✅ NEW IMPORTS ADDED HERE
+  Eye, Code
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
@@ -76,32 +78,78 @@ interface TextItem {
 }
 
 // --- COMPONENTS ---
+
+// ✅ UPDATED CODE BLOCK COMPONENT (With Artifacts/Preview)
 interface CodeProps extends ComponentPropsWithoutRef<'code'> { inline?: boolean; }
+
 const CodeBlock = ({ inline, className, children, ...props }: CodeProps) => {
   const [isCopied, setIsCopied] = useState(false);
+  const [mode, setMode] = useState<'code' | 'preview'>('code'); // State buat switch tab
+  
   const match = /language-(\w+)/.exec(className || '');
   const language = match ? match[1] : 'text';
+  const codeContent = String(children).replace(/\n$/, '');
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(String(children).replace(/\n$/, ''));
+    navigator.clipboard.writeText(codeContent);
     setIsCopied(true);
     toast.success('Code copied!');
     setTimeout(() => setIsCopied(false), 2000);
   };
 
+  // Handle Inline Code (e.g. `variable`)
   if (inline) return <code className="bg-zinc-100 dark:bg-zinc-800 text-blue-600 dark:text-blue-400 px-1.5 py-0.5 rounded text-sm font-mono" {...props}>{children}</code>;
+
+  // Cek apakah ini HTML/XML biar bisa dipreview
+  const isHtml = language === 'html' || language === 'xml';
 
   return (
     <div className="relative my-4 rounded-xl overflow-hidden border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#121214] shadow-sm group">
       <div className="flex justify-between items-center bg-zinc-100 dark:bg-zinc-900/50 px-4 py-2 text-xs text-zinc-500 dark:text-zinc-400 select-none border-b border-zinc-200 dark:border-zinc-800">
-        <span className="uppercase font-semibold tracking-wider font-mono text-blue-500 dark:text-blue-400">{language}</span>
+        <div className="flex gap-2 items-center">
+          <span className="uppercase font-semibold tracking-wider font-mono text-blue-500 dark:text-blue-400 py-1">{language}</span>
+          
+          {/* TOMBOL SWITCH PREVIEW (Hanya muncul kalau bahasa HTML) */}
+          {isHtml && (
+            <div className="flex bg-zinc-200 dark:bg-zinc-800 rounded-md p-0.5 ml-2">
+                <button 
+                  onClick={() => setMode('code')} 
+                  className={`px-2 py-0.5 rounded flex items-center gap-1 transition-all ${mode === 'code' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-500'}`}
+                >
+                    <Code size={12}/> Code
+                </button>
+                <button 
+                  onClick={() => setMode('preview')} 
+                  className={`px-2 py-0.5 rounded flex items-center gap-1 transition-all ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 text-black dark:text-white shadow-sm' : 'text-zinc-500'}`}
+                >
+                    <Eye size={12}/> Preview
+                </button>
+            </div>
+          )}
+        </div>
+
         <button onClick={handleCopy} className="flex items-center gap-1.5 hover:text-black dark:hover:text-white transition-colors">
           {isCopied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
           <span>{isCopied ? 'Copied' : 'Copy'}</span>
         </button>
       </div>
-      <div className="p-4 overflow-x-auto text-sm">
-        <code className={`!bg-transparent ${className}`} {...props}>{children}</code>
+
+      <div className="relative">
+        {mode === 'code' ? (
+             <div className="p-4 overflow-x-auto text-sm">
+                <code className={`!bg-transparent ${className}`} {...props}>{children}</code>
+             </div>
+        ) : (
+            // IFRAME BUAT PREVIEW
+            <div className="w-full h-[400px] bg-white border-none resize-y overflow-auto">
+                <iframe 
+                    srcDoc={codeContent} 
+                    className="w-full h-full border-none block" 
+                    sandbox="allow-scripts" // Aman dari serangan script berbahaya tapi script JS basic jalan
+                    title="Code Preview"
+                />
+            </div>
+        )}
       </div>
     </div>
   );
