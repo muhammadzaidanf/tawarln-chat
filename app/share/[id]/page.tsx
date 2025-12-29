@@ -35,28 +35,29 @@ export default function SharedChat({ params }: { params: { id: string } }) {
         const fetchChat = async () => {
             console.log("Mencari ID:", params.id);
             
-            // Ambil data tanpa filter is_shared dulu buat diagnosa
+            // Menggunakan .maybeSingle() agar tidak error jika data kosong
             const { data, error } = await supabase
                 .from('chats')
                 .select('*')
                 .eq('id', params.id)
-                .single(); 
+                .maybeSingle(); 
 
             if (error) {
                 console.error("Supabase Error:", error);
                 setDebugError(error.message);
-            } else if (data) {
-                // Casting manual biar TypeScript seneng
+            } else if (!data) {
+                // Jika data null, berarti ID tidak ditemukan di database
+                setDebugError("Chat HILANG / BELUM DISYNC ke Database. Pastikan ID benar atau coba buat chat baru.");
+            } else {
+                // Data ditemukan, casting ke tipe data kita
                 const chatData = data as SharedChatData;
 
-                // Cek apakah data ada tapi is_shared masih false
+                // Cek status is_shared
                 if (!chatData.is_shared) {
-                    setDebugError("Chat ketemu di database, tapi status 'is_shared' masih FALSE (Belum dipublic).");
+                    setDebugError("Chat ADA, tapi status 'is_shared' masih FALSE (Private). Minta pemilik chat untuk membagikan ulang.");
                 } else {
                     setChat(chatData);
                 }
-            } else {
-                setDebugError("Data kosong (Null) - ID tidak ditemukan.");
             }
             setLoading(false);
         };
@@ -65,7 +66,7 @@ export default function SharedChat({ params }: { params: { id: string } }) {
 
     if (loading) return <div className="p-10 text-center animate-pulse text-zinc-500">Lagi nyari data...</div>;
 
-    // TAMPILKAN ERROR JIKA ADA (DEBUG MODE)
+    // TAMPILAN ERROR JIKA ADA (DEBUG MODE)
     if (!chat) {
         return (
             <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-white dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100">
