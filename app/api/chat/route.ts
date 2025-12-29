@@ -44,6 +44,7 @@ async function googleSearch(query: string) {
     const apiKey = process.env.GOOGLE_API_KEY;
     const cx = process.env.GOOGLE_CX_ID;
     
+    // Log query ke Vercel buat monitoring
     console.log(`[GoogleSearch] Query: "${query}"`);
 
     if (!apiKey || !cx) {
@@ -74,39 +75,60 @@ async function googleSearch(query: string) {
 export async function POST(req: Request) {
   try {
     // ---------------------------------------------------------
+    // DEBUGGING SECTION (Cek Log Vercel kalau error 401)
+    // ---------------------------------------------------------
+    console.log("[DEBUG] Starting Chat API...");
+    
+    const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const sbKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    // Cek Env Vars Vercel
+    if (!sbUrl || !sbKey) {
+        console.error("[CRITICAL] Supabase Env Vars MISSING in Vercel!");
+        return NextResponse.json({ error: 'Server Config Error: Supabase URL/Key missing.' }, { status: 500 });
+    }
+
+    const cookieStore = await cookies(); // Pakai await!
+    const allCookies = cookieStore.getAll();
+    
+    // Cek keberadaan cookie auth supabase
+    const hasAuthCookie = allCookies.some(c => c.name.includes('sb-') && c.name.includes('-auth-token'));
+    
+    console.log(`[DEBUG] Cookies found: ${allCookies.length}`);
+    console.log(`[DEBUG] Has Supabase Auth Cookie: ${hasAuthCookie ? 'YES' : 'NO'}`);
+
+    // ---------------------------------------------------------
     // SECURITY LAYER 1: Server-Side Auth Check
     // ---------------------------------------------------------
-    
-    // ✅ FIX 1: Pake 'await' karena cookies() itu promise di Next.js terbaru
-    const cookieStore = await cookies();
-    
     const supabase = createServerClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      sbUrl,
+      sbKey,
       {
         cookies: {
           get(name: string) { return cookieStore.get(name)?.value; },
           set(name: string, value: string, options: CookieOptions) { 
-            // ✅ FIX 2: Hapus '(error)' di catch karena gak dipake
-            try { cookieStore.set({ name, value, ...options }); } catch { 
-                // Handle error silently
-            }
+            try { cookieStore.set({ name, value, ...options }); } catch { }
           },
           remove(name: string, options: CookieOptions) { 
-            // ✅ FIX 2: Hapus '(error)' di catch
             try { cookieStore.set({ name, value: '', ...options }); } catch { }
           },
         },
       }
     );
 
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError) {
+        console.error("[DEBUG] Supabase Session Error:", sessionError.message);
+    }
 
     if (!session) {
+      console.error("[DEBUG] Session is NULL. User not recognized.");
       return NextResponse.json({ error: 'Unauthorized: Harap login terlebih dahulu.' }, { status: 401 });
     }
 
     const userId = session.user.id; 
+    console.log(`[DEBUG] User Authenticated: ${userId}`);
 
     // ---------------------------------------------------------
     // SECURITY LAYER 2: Rate Limiting (Upstash)
