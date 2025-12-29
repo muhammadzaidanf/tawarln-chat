@@ -2,18 +2,16 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../../supabaseClient'; 
 import ReactMarkdown from 'react-markdown';
-import { Bot, User } from 'lucide-react';
+import { Bot, User, AlertTriangle } from 'lucide-react';
 
-// --- DEFINISI TIPE DATA (Strict Type) ---
-// ✅ FIX: Ganti 'any' dengan struktur object asli
+// --- TIPE DATA STRICT (NO ANY) ---
 type VisionItem = {
-    type: string;
+    type: 'text' | 'image_url';
     text?: string;
-    image_url?: {
-        url: string;
-    };
+    image_url?: { url: string };
 };
 
+// Content bisa berupa String biasa atau Array Vision (Gambar+Text)
 type MessageContent = string | VisionItem[];
 
 interface Message {
@@ -25,38 +23,71 @@ interface SharedChatData {
     id: string;
     title: string;
     messages: Message[];
-    created_at?: string;
+    is_shared: boolean;
 }
 
 export default function SharedChat({ params }: { params: { id: string } }) {
     const [chat, setChat] = useState<SharedChatData | null>(null);
     const [loading, setLoading] = useState(true);
+    const [debugError, setDebugError] = useState<string | null>(null);
 
     useEffect(() => {
         const fetchChat = async () => {
-            const { data } = await supabase
+            console.log("Mencari ID:", params.id);
+            
+            // Ambil data tanpa filter is_shared dulu buat diagnosa
+            const { data, error } = await supabase
                 .from('chats')
                 .select('*')
                 .eq('id', params.id)
-                .eq('is_shared', true) 
-                .single();
-            
-            if (data) {
-                // Casting data aman karena kita udah definisikan tipe di atas
-                setChat(data as SharedChatData);
+                .single(); 
+
+            if (error) {
+                console.error("Supabase Error:", error);
+                setDebugError(error.message);
+            } else if (data) {
+                // Casting manual biar TypeScript seneng
+                const chatData = data as SharedChatData;
+
+                // Cek apakah data ada tapi is_shared masih false
+                if (!chatData.is_shared) {
+                    setDebugError("Chat ketemu di database, tapi status 'is_shared' masih FALSE (Belum dipublic).");
+                } else {
+                    setChat(chatData);
+                }
+            } else {
+                setDebugError("Data kosong (Null) - ID tidak ditemukan.");
             }
             setLoading(false);
         };
         fetchChat();
     }, [params.id]);
 
-    if (loading) return <div className="p-10 text-center animate-pulse text-zinc-500">Loading shared chat...</div>;
-    if (!chat) return <div className="p-10 text-center text-red-500">Chat not found or private.</div>;
+    if (loading) return <div className="p-10 text-center animate-pulse text-zinc-500">Lagi nyari data...</div>;
+
+    // TAMPILKAN ERROR JIKA ADA (DEBUG MODE)
+    if (!chat) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-screen p-4 text-center bg-white dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100">
+                <div className="bg-red-500/10 text-red-500 p-4 rounded-full mb-4">
+                    <AlertTriangle size={32} />
+                </div>
+                <h2 className="text-xl font-bold mb-2">Gagal Memuat Chat</h2>
+                <p className="text-zinc-500 mb-6">Ada masalah saat mengambil data.</p>
+                
+                {/* KOTAK ERROR DIAGNOSA */}
+                <div className="bg-zinc-100 dark:bg-zinc-900 p-4 rounded-lg max-w-md w-full text-left font-mono text-xs border border-zinc-200 dark:border-zinc-800 overflow-x-auto">
+                    <p className="font-bold text-zinc-400 mb-2 border-b pb-1">DEBUG INFO:</p>
+                    <p className="mb-1">ID URL: <span className="text-blue-500">{params.id}</span></p>
+                    <p>Status: <span className="text-red-500 font-bold">{debugError || "Unknown Error"}</span></p>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="max-w-3xl mx-auto p-6 font-sans min-h-screen bg-white dark:bg-[#09090b] text-zinc-900 dark:text-zinc-100">
             <h1 className="text-2xl font-bold mb-8 border-b border-zinc-200 dark:border-zinc-800 pb-4">{chat.title}</h1>
-            
             <div className="space-y-6">
                 {chat.messages.map((msg: Message, i: number) => (
                     <div key={i} className="flex gap-4">
@@ -74,7 +105,6 @@ export default function SharedChat({ params }: { params: { id: string } }) {
                     </div>
                 ))}
             </div>
-            
             <div className="mt-14 pt-6 border-t border-zinc-200 dark:border-zinc-800 text-center text-xs text-zinc-500">
                 Shared via <span className="font-semibold text-blue-500">Tawarln AI</span>
             </div>
