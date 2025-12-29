@@ -12,7 +12,7 @@ import {
   Sun, Moon, AlertTriangle, Globe, 
   ShieldCheck, Cloud, Edit2,
   Gamepad2, Plane, Code2, Lightbulb,
-  Eye, Code, Share2, Sparkle
+  Eye, Code, Share2, Sparkle, Command
 } from 'lucide-react';
 import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
@@ -558,7 +558,8 @@ export default function Home() {
         <div className="w-full max-w-sm bg-zinc-900/50 backdrop-blur-xl border border-zinc-800 rounded-3xl p-8 shadow-2xl text-center">
           <div className="flex justify-center mb-8">
             <div className="w-24 h-24 bg-zinc-800/80 rounded-2xl flex items-center justify-center shadow-lg border border-zinc-700/50 p-5 ring-4 ring-zinc-800/30">
-              <Image src="/logo.png" alt="Tawarln Logo" width={80} height={80} className="w-full h-full object-contain" />
+              {/* FALLBACK LOGO: If image missing, show ICON */}
+              <Command size={48} className="text-white" />
             </div>
           </div>
           <h1 className="text-3xl font-bold mb-3 tracking-tight bg-gradient-to-b from-white to-zinc-400 text-transparent bg-clip-text">Tawarln AI</h1>
@@ -577,6 +578,7 @@ export default function Home() {
 
       {(activeMenuId || isModelMenuOpen || isProfileMenuOpen || isDeleteModalOpen) && <div className="fixed inset-0 z-[25]" onClick={closeAllMenus} />}
 
+      {/* MODAL DELETE */}
       {isDeleteModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className={`border rounded-3xl w-full max-w-sm p-6 shadow-2xl relative scale-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
@@ -593,6 +595,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* SETTINGS MODAL */}
       {isSettingsOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
             <div className={`border rounded-3xl w-full max-w-md p-6 relative shadow-2xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
@@ -621,12 +624,14 @@ export default function Home() {
         </div>
       )}
 
+      {/* SIDEBAR */}
       <aside className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 md:relative md:translate-x-0 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="flex flex-col h-full p-4">
           <div className="flex items-center gap-3 px-3 mb-8 mt-2">
             <div className="w-9 h-9 relative bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-[1px]">
                <div className={`w-full h-full rounded-[10px] flex items-center justify-center ${theme === 'dark' ? 'bg-zinc-950' : 'bg-white'}`}>
-                 <Bot size={20} className="text-transparent bg-clip-text bg-gradient-to-br from-blue-500 to-purple-600" />
+                 {/* LOGO DI SIDEBAR: Kalau image rusak, pake icon */}
+                 <Command size={20} className="text-transparent bg-clip-text bg-gradient-to-br from-blue-500 to-purple-600" />
                </div>
             </div>
             <span className={`text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text`}>Tawarln AI</span>
@@ -661,8 +666,8 @@ export default function Home() {
             ))}
           </div>
           
-          {/* User Profile Mini */}
-          <div className={`mt-2 pt-4 border-t ${theme === 'dark' ? 'border-zinc-900' : 'border-zinc-200'}`}>
+          {/* USER PROFILE DI BAWAH (SIDEBAR) - FIX POSISI MENU */}
+          <div className={`mt-2 pt-4 border-t ${theme === 'dark' ? 'border-zinc-900' : 'border-zinc-200'} relative`}>
              <button onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className={`flex items-center gap-3 w-full p-2 rounded-xl transition-colors ${theme === 'dark' ? 'hover:bg-zinc-900' : 'hover:bg-zinc-100'}`}>
                 <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
                     {user?.email?.slice(0,2).toUpperCase()}
@@ -671,11 +676,23 @@ export default function Home() {
                     <div className="text-xs font-medium truncate text-zinc-900 dark:text-zinc-200">{user?.email}</div>
                     <div className="text-[10px] text-zinc-500">Free Plan</div>
                 </div>
+                <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
              </button>
+
+             {/* MENU PROFILE POP-UP DI ATAS TOMBOL (BOTTOM-LEFT) */}
+             {isProfileMenuOpen && (
+                <div className={`absolute bottom-full left-0 mb-2 w-full border rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-bottom-2 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                    <button onClick={() => { setIsSettingsOpen(true); setIsProfileMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200"><Sliders size={16} /> Preferences</button>
+                    <button onClick={toggleTheme} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200">{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>} {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button>
+                    <div className="h-[1px] bg-zinc-100 dark:bg-zinc-800 my-1"></div>
+                    <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"><LogOut size={16}/> Sign Out</button>
+                </div>
+             )}
           </div>
         </div>
       </aside>
 
+      {/* MAIN CONTENT */}
       <main className="flex-1 flex flex-col relative w-full h-full overflow-hidden">
         <header className={`flex items-center justify-between px-6 py-4 z-[30] backdrop-blur-md absolute top-0 w-full ${theme === 'dark' ? 'bg-zinc-950/80' : 'bg-white/80'}`}>
           <div className="flex items-center gap-2">
@@ -706,16 +723,12 @@ export default function Home() {
                     <Share2 size={14} /> Share
                 </button>
              )}
-             
-             {isProfileMenuOpen && <div className={`absolute right-6 top-16 w-56 border rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                <button onClick={() => { setIsSettingsOpen(true); setIsProfileMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200"><Sliders size={16} /> Preferences</button>
-                <button onClick={toggleTheme} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200">{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>} {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button>
-                <div className="h-[1px] bg-zinc-100 dark:bg-zinc-800 my-1"></div>
-                <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"><LogOut size={16}/> Sign Out</button>
-            </div>}
           </div>
         </header>
 
+        {/* ... (SISA CODE INPUT DAN CHAT AREA SAMA SEPERTI SEBELUMNYA) ... */}
+        {/* Supaya gak kepotong, gw tulis ulang bagian bawahnya dengan rapi */}
+        
         <div className="flex-1 overflow-y-auto pt-20">
             <div className={`max-w-3xl mx-auto px-4 pb-[180px] min-h-full flex flex-col ${currentMessages.length === 0 ? 'justify-center' : ''}`}>
             
@@ -744,7 +757,6 @@ export default function Home() {
             {currentMessages.map((msg, index) => (
               <div key={index} className={`group py-6 ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
                 {msg.role === 'user' ? (
-                    // USER BUBBLE
                     <div className="flex gap-3 max-w-[80%] flex-row-reverse">
                         <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0">
                             <UserIcon size={16} className="text-zinc-600 dark:text-zinc-400" />
@@ -761,7 +773,6 @@ export default function Home() {
                         </div>
                     </div>
                 ) : (
-                    // AI RESPONSE (CLEAN TEXT)
                     <div className="flex gap-4 md:gap-6 max-w-3xl">
                         <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 mt-1">
                             <Bot size={18} className="text-white" />
@@ -781,7 +792,6 @@ export default function Home() {
                     </div>
                 )}
                 
-                {/* Edit Form */}
                 {editingMessageIndex === index && (
                     <div className="mt-2 w-full max-w-3xl mx-auto border rounded-xl p-4 shadow-lg bg-white dark:bg-zinc-900 border-blue-500/50">
                         <TextareaAutosize value={editingMessageText} onChange={(e) => setEditingMessageText(e.target.value)} className="w-full bg-transparent border-none focus:ring-0 resize-none mb-3 text-zinc-900 dark:text-zinc-100" />
@@ -808,7 +818,6 @@ export default function Home() {
             <div ref={messagesEndRef} className="h-4" />
         </div></div>
 
-        {/* INPUT AREA FLOATING */}
         <div className="absolute bottom-6 left-0 w-full px-4">
             <div className="max-w-[768px] mx-auto">
             {attachment && (
