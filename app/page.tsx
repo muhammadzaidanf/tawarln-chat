@@ -19,7 +19,7 @@ import { User } from '@supabase/supabase-js';
 
 // --- CONSTANTS ---
 const MODELS = [
-  { id: 'Claude Sonnet 4.5', name: 'Claude 3.5 Sonnet', desc: 'Best for Vision & Code' },
+  { id: 'Claude Sonnet 4.5', name: 'Claude 4.5 Sonnet', desc: 'Best for Vision & Code' },
   { id: 'GLM 4.6', name: 'GLM 4.6', desc: 'Balanced' },
   { id: 'Kimi K2', name: 'Kimi K2', desc: 'Creative' },
   { id: 'Llama 4 Maverick', name: 'Llama 4', desc: 'Fastest' },
