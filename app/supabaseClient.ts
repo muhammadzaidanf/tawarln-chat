@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-// GANTI DENGAN KUNCI DARI DASHBOARD SUPABASE LU
-const supabaseUrl = 'https://akyhgmmsjhktnsodqlaz.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFreWhnbW1zamhrdG5zb2RxbGF6Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjY4NDI3NDMsImV4cCI6MjA4MjQxODc0M30.jZstfofLSZmOagfvAGo8ZCx4TleVPP4mKnb-vISC-Zk';
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error("Missing Supabase URL or Anon Key");
+}
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
