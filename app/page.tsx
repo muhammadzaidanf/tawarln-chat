@@ -82,7 +82,7 @@ interface ArtifactState {
 
 interface ChartConfig {
   chartType: 'bar' | 'line' | 'area' | 'pie';
-  data: Array<Record<string, string | number>>;
+  data: Record<string, string | number>[];
   dataKey: string;
   xAxisKey: string;
   fill?: string;
@@ -222,10 +222,16 @@ const CodeBlock = ({ inline, className, children, onOpenArtifact, ...props }: Co
           <span className="font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase">{language}</span>
           {isHtml && (
             <div className="flex bg-zinc-200 dark:bg-zinc-800 rounded p-0.5 ml-2">
-                <button onClick={() => setMode('code')} className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'code' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}>
+                <button 
+                  onClick={() => setMode('code')} 
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'code' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
                     <Code size={12} /> Code
                 </button>
-                <button onClick={() => setMode('preview')} className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}>
+                <button 
+                  onClick={() => setMode('preview')} 
+                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}
+                >
                     <Eye size={12} /> Preview
                 </button>
             </div>
@@ -541,14 +547,14 @@ export default function Home() {
     }
   };
 
-  // ✅ CRITICAL FIX: Passing newMessagesState to prevent Race Condition (User message disappearing)
+  // ✅ CRITICAL FIX: Logic Anti-Overwrite User Message
   const handleStreamingResponse = async (payload: ChatPayload, sessionId: string, newMessagesState: Message[]) => {
     setLoading(true);
     abortControllerRef.current = new AbortController();
     
     const initialBotMsg: Message = { role: 'assistant', content: '' };
     
-    // 1. Set Initial State with User Msg + Bot Placeholder
+    // 1. Initial Update: Paksa masukkan pesan user + bot placeholder
     setSessions(prev => prev.map(s => {
         if (s.id === sessionId) {
             return { ...s, messages: [...newMessagesState, initialBotMsg] };
@@ -574,22 +580,30 @@ export default function Home() {
         const chunkValue = decoder.decode(value, { stream: true });
         streamedText += chunkValue;
         
-        // 2. Update Bot Message Content Only
+        // 2. Loop Update: Safety Check
         setSessions(prev => prev.map(s => {
             if (s.id === sessionId) {
                 const updatedMsgs = [...s.messages];
-                const lastIdx = updatedMsgs.length - 1;
-                updatedMsgs[lastIdx] = { 
-                    ...updatedMsgs[lastIdx],
-                    content: streamedText 
-                };
+                const lastMsg = updatedMsgs[updatedMsgs.length - 1];
+
+                // 🛡️ SAFETY CHECK: Apakah pesan terakhir itu Assistant?
+                if (lastMsg && lastMsg.role === 'assistant') {
+                    // Aman, update isinya
+                    updatedMsgs[updatedMsgs.length - 1] = {
+                        ...lastMsg,
+                        content: streamedText 
+                    };
+                } else {
+                    // BAHAYA! Pesan terakhir bukan Assistant (mungkin User).
+                    // JANGAN TIMPA! Tambahkan pesan Assistant baru di bawahnya.
+                    updatedMsgs.push({ role: 'assistant', content: streamedText });
+                }
                 return { ...s, messages: updatedMsgs };
             }
             return s;
         }));
       }
       
-      // 3. Sync to DB
       setSessions(prev => {
           const session = prev.find(s => s.id === sessionId);
           if (session) syncSessionToDb(session);
@@ -597,7 +611,6 @@ export default function Home() {
       });
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
-         // handled by UI
       } else {
         toast.error('Error generating response.');
       }
@@ -642,7 +655,6 @@ export default function Home() {
     const currentHistory = currentSession?.messages || [];
     const newMessagesWithUser = [...currentHistory, userMsg];
 
-    // Optimistic Update
     setSessions(prev => prev.map(session => {
         if (session.id === currentSessionId) {
             const newTitle = session.messages.length === 0 ? (typeof userContent === 'string' ? userContent.slice(0,30) : 'File Analysis') : session.title;
@@ -657,7 +669,6 @@ export default function Home() {
     
     const payload = [...currentHistory.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: apiContent }];
     
-    // Pass newMessagesWithUser directly to prevent race condition
     await handleStreamingResponse({ messages: payload, model: selectedModel, systemPrompt, temperature, webSearch: isWebSearchActive }, currentSessionId, newMessagesWithUser);
   };
 
@@ -711,56 +722,11 @@ export default function Home() {
 
       {(activeMenuId || isModelMenuOpen || isProfileMenuOpen || isDeleteModalOpen) && <div className="fixed inset-0 z-[25]" onClick={closeAllMenus} />}
 
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className={`border rounded-3xl w-full max-w-sm p-6 shadow-2xl relative scale-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                <div className="flex flex-col items-center text-center">
-                    <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500 mx-auto"><AlertTriangle size={28} /></div>
-                    <h3 className="text-lg font-bold mb-2">Delete Conversation?</h3>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 px-4">This action cannot be undone. The chat history will be permanently removed.</p>
-                    <div className="flex gap-3 w-full">
-                        <button onClick={() => setIsDeleteModalOpen(false)} className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'}`}>Cancel</button>
-                        <button onClick={executeDeleteChat} className="flex-1 py-3 rounded-xl text-sm font-medium bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20">Delete</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-      )}
-      
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className={`border rounded-3xl w-full max-w-md p-6 relative shadow-2xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2"><Sliders size={20} className="text-blue-500"/> Preferences</h2>
-                    <button onClick={() => setIsSettingsOpen(false)} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X size={20} className="text-zinc-500"/></button>
-                </div>
-                
-                <div className="space-y-6">
-                    <div>
-                      <label className="text-xs font-semibold uppercase text-zinc-500 mb-2 block tracking-wider">System Instructions</label>
-                      <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className={`w-full h-32 bg-black/40 border border-zinc-700 rounded-xl p-3 text-sm text-white resize-none`} placeholder="Custom instructions..." />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold uppercase text-zinc-500 mb-4 block flex justify-between tracking-wider"><span>Creativity Level</span> <span className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded text-[10px]">{temperature}</span></label>
-                      <input type="range" min="0" max="1" step="0.1" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full h-2 accent-blue-500 rounded-lg cursor-pointer bg-zinc-200 dark:bg-zinc-800 appearance-none" />
-                      <div className="flex justify-between text-[10px] text-zinc-500 mt-2">
-                          <span>Precise</span>
-                          <span>Balanced</span>
-                          <span>Creative</span>
-                      </div>
-                    </div>
-                </div>
-                <button onClick={() => setIsSettingsOpen(false)} className="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]">Save Changes</button>
-            </div>
-        </div>
-      )}
-
-      {/* SIDEBAR FIXED */}
+      {/* --- SIDEBAR --- */}
       <aside 
         className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="flex flex-col h-full p-4 relative">
-          
           <div className="flex items-center justify-between px-3 mb-8 mt-2">
             <div className="flex items-center gap-3">
                 <div className="w-9 h-9 relative bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl p-[1px]">
@@ -773,7 +739,6 @@ export default function Home() {
                 </div>
                 <span className={`text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text`}>Tawarln</span>
             </div>
-            
             <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"><PanelLeftClose size={20} /></button>
           </div>
 
@@ -827,191 +792,71 @@ export default function Home() {
 
       {/* --- MAIN AREA --- */}
       <main className={`flex-1 flex flex-col relative w-full h-full overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-[280px]' : 'md:ml-0'}`}>
+        {/* ARTIFACTS SPLIT VIEW */}
         <div className="flex w-full h-full relative">
             
             {/* CHAT AREA */}
             <div className={`flex-1 flex flex-col h-full relative transition-all ${artifact.isOpen ? 'w-1/2 hidden md:flex' : 'w-full'}`}>
                 <header className={`flex items-center justify-between px-6 py-4 z-[30] backdrop-blur-md absolute top-0 w-full ${theme === 'dark' ? 'bg-zinc-950/80' : 'bg-white/80'}`}>
                     <div className="flex items-center gap-2">
-                        
-                        {/* TOGGLE BUTTON */}
-                        <button 
-                            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
-                            className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'}`}
-                            title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}
-                        >
-                            {isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}
-                        </button>
-
+                        <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className={`p-2 rounded-lg transition-colors ${theme === 'dark' ? 'text-zinc-400 hover:bg-zinc-800 hover:text-white' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900'}`} title={isSidebarOpen ? "Close Sidebar" : "Open Sidebar"}>{isSidebarOpen ? <PanelLeftClose size={20} /> : <PanelLeftOpen size={20} />}</button>
                         <div className="relative">
-                            <button onClick={() => setIsModelMenuOpen(!isModelMenuOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900">
-                                <span className="bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text font-bold text-lg">{MODELS.find(m => m.id === selectedModel)?.name}</span>
-                                <ChevronDown size={16} className="text-zinc-400"/>
-                            </button>
-                            {isModelMenuOpen && <div className={`absolute top-full left-0 mt-3 w-72 border rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                                <div className="px-2 py-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Select Model</div>
-                                {MODELS.map((m) => (
-                                    <button key={m.id} onClick={() => handleModelChange(m.id)} className={`flex flex-col w-full px-4 py-3 rounded-xl text-left transition-colors ${selectedModel === m.id ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'}`}>
-                                        <span className="text-sm font-semibold">{m.name}</span>
-                                        <span className={`text-xs ${selectedModel === m.id ? 'text-zinc-400' : 'text-zinc-500'}`}>{m.desc}</span>
-                                    </button>
-                                ))}
-                            </div>}
+                            <button onClick={() => setIsModelMenuOpen(!isModelMenuOpen)} className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-900"><span className="bg-gradient-to-r from-blue-600 to-purple-600 text-transparent bg-clip-text font-bold text-lg">{MODELS.find(m => m.id === selectedModel)?.name}</span><ChevronDown size={16} className="text-zinc-400"/></button>
+                            {isModelMenuOpen && <div className={`absolute top-full left-0 mt-3 w-72 border rounded-2xl shadow-2xl p-2 z-50 animate-in fade-in zoom-in-95 duration-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}><div className="px-2 py-2 text-[10px] font-bold text-zinc-500 uppercase tracking-wider">Select Model</div>{MODELS.map((m) => (<button key={m.id} onClick={() => handleModelChange(m.id)} className={`flex flex-col w-full px-4 py-3 rounded-xl text-left transition-colors ${selectedModel === m.id ? 'bg-zinc-800 text-white' : 'hover:bg-zinc-100 dark:hover:bg-zinc-800/50 text-zinc-700 dark:text-zinc-300'}`}><span className="text-sm font-semibold">{m.name}</span><span className={`text-xs ${selectedModel === m.id ? 'text-zinc-400' : 'text-zinc-500'}`}>{m.desc}</span></button>))}</div>}
                         </div>
                     </div>
-                    
                     <div className="flex items-center gap-2">
-                        {currentSessionId && (
-                            <button 
-                            onClick={() => { const s = sessions.find(s => s.id === currentSessionId); if(s) handleShareChat(s); }}
-                            className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${theme === 'dark' ? 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}
-                            >
-                                <Share2 size={14} /> Share
-                            </button>
-                        )}
+                        {currentSessionId && <button onClick={() => { const s = sessions.find(s => s.id === currentSessionId); if(s) handleShareChat(s); }} className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium transition-all ${theme === 'dark' ? 'bg-zinc-900 text-zinc-300 hover:bg-zinc-800' : 'bg-zinc-100 text-zinc-600 hover:bg-zinc-200'}`}><Share2 size={14} /> Share</button>}
                     </div>
                 </header>
 
                 <div className="flex-1 overflow-y-auto pt-20">
-                    <div className={`max-w-3xl mx-auto px-4 pb-[180px] min-h-full flex flex-col justify-center`}>
-                    
+                    <div className="max-w-3xl mx-auto px-4 pb-[180px] min-h-full flex flex-col justify-center">
                     {currentMessages.length === 0 && (
                         <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 py-10">
-                            <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-8 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 shadow-xl shadow-blue-500/5">
-                                <Sparkles size={40} className="text-blue-500" />
-                            </div>
+                            <div className="w-20 h-20 rounded-3xl flex items-center justify-center mb-8 bg-gradient-to-br from-blue-500/10 to-purple-500/10 border border-blue-500/20 shadow-xl shadow-blue-500/5"><Sparkles size={40} className="text-blue-500" /></div>
                             <h2 className="text-3xl font-bold mb-3 tracking-tight text-center bg-gradient-to-b from-zinc-800 to-zinc-500 dark:from-white dark:to-zinc-400 text-transparent bg-clip-text">How can I help you today?</h2>
                             <p className="text-zinc-500 dark:text-zinc-400 text-center mb-10 max-w-md">I can help you analyze data, write code, or just brainstorm creative ideas.</p>
-                            
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">
-                                {randomSuggestions.map((item, idx) => (
-                                    <button key={idx} onClick={() => sendMessage(item.text)} className={`group flex items-center gap-4 p-4 border rounded-2xl text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800' : 'bg-white border-zinc-200 hover:border-zinc-300'}`}>
-                                        <div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-zinc-800 text-blue-400 group-hover:bg-zinc-700' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-100'}`}>{item.icon}</div>
-                                        <div>
-                                            <div className="text-xs font-bold uppercase tracking-wider opacity-50 mb-0.5">{item.label}</div>
-                                            <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 line-clamp-1">{item.text}</div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 w-full max-w-2xl">{randomSuggestions.map((item, idx) => (<button key={idx} onClick={() => sendMessage(item.text)} className={`group flex items-center gap-4 p-4 border rounded-2xl text-left transition-all hover:-translate-y-0.5 hover:shadow-md ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800 hover:bg-zinc-800' : 'bg-white border-zinc-200 hover:border-zinc-300'}`}><div className={`p-2 rounded-lg ${theme === 'dark' ? 'bg-zinc-800 text-blue-400 group-hover:bg-zinc-700' : 'bg-blue-50 text-blue-600 group-hover:bg-blue-100'}`}>{item.icon}</div><div><div className="text-xs font-bold uppercase tracking-wider opacity-50 mb-0.5">{item.label}</div><div className="text-sm font-medium text-zinc-800 dark:text-zinc-200 line-clamp-1">{item.text}</div></div></button>))}</div>
                         </div>
                     )}
-                    
                     <div className="flex flex-col space-y-6">
                         {currentMessages.map((msg, index) => (
                         <div key={index} className={`group ${msg.role === 'user' ? 'flex justify-end' : ''}`}>
                             {msg.role === 'user' ? (
                                 <div className="flex gap-3 max-w-[80%] flex-row-reverse">
-                                    <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0">
-                                        <UserIcon size={16} className="text-zinc-600 dark:text-zinc-400" />
-                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center shrink-0"><UserIcon size={16} className="text-zinc-600 dark:text-zinc-400" /></div>
                                     <div className={`px-5 py-3 rounded-2xl ${theme === 'dark' ? 'bg-zinc-800 text-zinc-100' : 'bg-zinc-100 text-zinc-800'}`}>
-                                        <div className="prose dark:prose-invert prose-sm max-w-none text-[15px] leading-7">
-                                            {renderMessageContent(msg.content)}
-                                        </div>
-                                        {!editingMessageIndex && (
-                                            <div className="flex items-center justify-end gap-2 mt-2 opacity-0 group-hover:opacity-50 transition-opacity">
-                                                <button onClick={() => startEditMessage(index, msg.content as string)} className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><Edit2 size={12} /></button>
-                                            </div>
-                                        )}
+                                        <div className="prose dark:prose-invert prose-sm max-w-none text-[15px] leading-7">{renderMessageContent(msg.content)}</div>
+                                        {!editingMessageIndex && (<div className="flex items-center justify-end gap-2 mt-2 opacity-0 group-hover:opacity-50 transition-opacity"><button onClick={() => startEditMessage(index, msg.content as string)} className="p-1 hover:bg-black/10 dark:hover:bg-white/10 rounded"><Edit2 size={12} /></button></div>)}
                                     </div>
                                 </div>
                             ) : (
                                 <div className="flex gap-4 md:gap-6 max-w-3xl">
-                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 mt-1">
-                                        <Bot size={18} className="text-white" />
-                                    </div>
+                                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shrink-0 shadow-lg shadow-blue-500/20 mt-1"><Bot size={18} className="text-white" /></div>
                                     <div className="flex-1 min-w-0">
-                                        <div className="font-semibold text-sm mb-2 opacity-90 flex items-center gap-2">
-                                            Tawarln 
-                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">AI</span>
-                                        </div>
-                                        <div className={`prose max-w-none text-[15px] leading-7 ${theme === 'dark' ? 'prose-invert prose-p:text-zinc-300 prose-headings:text-zinc-100' : 'prose-zinc prose-p:text-zinc-700'}`}>
-                                            {renderMessageContent(msg.content)}
-                                            {/* INDICATOR LOADING PADA PESAN TERAKHIR AI */}
-                                            {index === currentMessages.length - 1 && loading && !msg.content && (
-                                                <div className="flex items-center gap-1 mt-2">
-                                                    <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></div>
-                                                    <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-150"></div>
-                                                    <div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-300"></div>
-                                                </div>
-                                            )}
-                                        </div>
-                                        <div className="flex items-center gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button onClick={() => copyMessage(typeof msg.content === 'string' ? msg.content : 'Image content')} className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><Copy size={12} /> Copy</button>
-                                        </div>
+                                        <div className="font-semibold text-sm mb-2 opacity-90 flex items-center gap-2">Tawarln <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-500 border border-blue-500/20">AI</span></div>
+                                        <div className={`prose max-w-none text-[15px] leading-7 ${theme === 'dark' ? 'prose-invert prose-p:text-zinc-300 prose-headings:text-zinc-100' : 'prose-zinc prose-p:text-zinc-700'}`}>{renderMessageContent(msg.content)}{index === currentMessages.length - 1 && loading && !msg.content && (<div className="flex items-center gap-1 mt-2"><div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce"></div><div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-150"></div><div className="w-1.5 h-1.5 bg-zinc-400 rounded-full animate-bounce delay-300"></div></div>)}</div>
+                                        <div className="flex items-center gap-2 mt-4 opacity-0 group-hover:opacity-100 transition-opacity"><button onClick={() => copyMessage(typeof msg.content === 'string' ? msg.content : 'Image content')} className="flex items-center gap-1.5 px-2 py-1 rounded-md text-xs text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><Copy size={12} /> Copy</button></div>
                                     </div>
                                 </div>
                             )}
-                            
-                            {editingMessageIndex === index && (
-                                <div className="mt-2 w-full max-w-3xl mx-auto border rounded-xl p-4 shadow-lg bg-white dark:bg-zinc-900 border-blue-500/50">
-                                    <TextareaAutosize value={editingMessageText} onChange={(e) => setEditingMessageText(e.target.value)} className="w-full bg-transparent border-none focus:ring-0 resize-none mb-3 text-zinc-900 dark:text-zinc-100" />
-                                    <div className="flex justify-end gap-2">
-                                        <button onClick={() => setEditingMessageIndex(null)} className="px-4 py-2 text-xs bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:opacity-80">Cancel</button>
-                                        <button onClick={saveEditAndRegenerate} className="px-4 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save & Regenerate</button>
-                                    </div>
-                                </div>
-                            )}
+                            {editingMessageIndex === index && (<div className="mt-2 w-full max-w-3xl mx-auto border rounded-xl p-4 shadow-lg bg-white dark:bg-zinc-900 border-blue-500/50"><TextareaAutosize value={editingMessageText} onChange={(e) => setEditingMessageText(e.target.value)} className="w-full bg-transparent border-none focus:ring-0 resize-none mb-3 text-zinc-900 dark:text-zinc-100" /><div className="flex justify-end gap-2"><button onClick={() => setEditingMessageIndex(null)} className="px-4 py-2 text-xs bg-zinc-100 dark:bg-zinc-800 rounded-lg hover:opacity-80">Cancel</button><button onClick={saveEditAndRegenerate} className="px-4 py-2 text-xs bg-blue-600 text-white rounded-lg hover:bg-blue-700">Save & Regenerate</button></div></div>)}
                         </div>
                         ))}
                     </div>
-
                     <div ref={messagesEndRef} className="h-4" />
                 </div></div>
 
                 <div className="absolute bottom-6 left-0 w-full px-4">
                     <div className="max-w-[768px] mx-auto">
-                    {/* FLOATING STOP BUTTON - HANYA MUNCUL SAAT LOADING */}
-                    {loading && (
-                        <div className="flex justify-center mb-4 animate-in fade-in slide-in-from-bottom-2">
-                            <button 
-                                onClick={handleStop}
-                                className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black px-4 py-2 rounded-full text-xs font-medium shadow-lg flex items-center gap-2 hover:opacity-90 transition-all border border-zinc-700 dark:border-zinc-300"
-                            >
-                                <StopCircle size={14} className="animate-pulse text-red-500" /> Stop Generating
-                            </button>
-                        </div>
-                    )}
-
-                    {attachment && (
-                      <div className={`mb-3 p-3 border rounded-2xl w-fit flex items-center gap-3 animate-in slide-in-from-bottom-2 shadow-xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                        {attachment.type === 'image' ? (
-                          <div className="relative w-12 h-12 rounded-xl overflow-hidden">
-                              <Image src={attachment.url} alt="Attachment" fill className="object-cover" />
-                          </div>
-                        ) : (
-                          <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center"><FileCode size={24} className="text-blue-500" /></div>
-                        )}
-                        <div>
-                            <div className="text-xs font-bold truncate max-w-[150px]">{attachment.name}</div>
-                            <div className="text-[10px] text-zinc-500 uppercase tracking-wide">Attached File</div>
-                        </div>
-                        <button onClick={() => setAttachment(null)} className="p-1.5 hover:bg-red-500/10 hover:text-red-500 rounded-full transition-colors ml-2"><X size={14}/></button>
-                      </div>
-                    )}
-                    
+                    {loading && (<div className="flex justify-center mb-4 animate-in fade-in slide-in-from-bottom-2"><button onClick={handleStop} className="bg-zinc-900 dark:bg-zinc-100 text-white dark:text-black px-4 py-2 rounded-full text-xs font-medium shadow-lg flex items-center gap-2 hover:opacity-90 transition-all border border-zinc-700 dark:border-zinc-300"><StopCircle size={14} className="animate-pulse text-red-500" /> Stop Generating</button></div>)}
+                    {attachment && (<div className={`mb-3 p-3 border rounded-2xl w-fit flex items-center gap-3 animate-in slide-in-from-bottom-2 shadow-xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>{attachment.type === 'image' ? (<div className="relative w-12 h-12 rounded-xl overflow-hidden"><Image src={attachment.url} alt="Attachment" fill className="object-cover" /></div>) : (<div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center"><FileCode size={24} className="text-blue-500" /></div>)}<div><div className="text-xs font-bold truncate max-w-[150px]">{attachment.name}</div><div className="text-[10px] text-zinc-500 uppercase tracking-wide">Attached File</div></div><button onClick={() => setAttachment(null)} className="p-1.5 hover:bg-red-500/10 hover:text-red-500 rounded-full transition-colors ml-2"><X size={14}/></button></div>)}
                     <div className={`relative flex items-end gap-2 border p-2 shadow-2xl backdrop-blur-xl transition-all rounded-[26px] ${theme === 'dark' ? 'bg-zinc-900/90 border-zinc-800 focus-within:border-zinc-700' : 'bg-white/90 border-zinc-200 focus-within:border-zinc-300'}`}>
-                      <button onClick={() => fileInputRef.current?.click()} className="p-3 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors" title="Upload"><Plus size={20} /></button>
-                      <button onClick={() => setIsWebSearchActive(!isWebSearchActive)} className={`p-3 rounded-full transition-all ${isWebSearchActive ? 'text-blue-500 bg-blue-500/10' : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`} title="Web Search">
-                          <Globe size={20} className={isWebSearchActive ? 'animate-pulse' : ''}/>
-                      </button>
-                      
-                      <TextareaAutosize 
-                        minRows={1} maxRows={8} 
-                        value={input} onChange={(e) => setInput(e.target.value)} 
-                        onKeyDown={handleKeyDown} 
-                        placeholder="Ask anything..." 
-                        className={`flex-1 bg-transparent border-none focus:ring-0 py-3 px-2 text-[15px] resize-none max-h-[200px] overflow-y-auto ${theme === 'dark' ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-zinc-900 placeholder:text-zinc-400'}`} 
-                      />
-                      
-                      <button 
-                        onClick={() => sendMessage(input)} 
-                        disabled={loading || (!input.trim() && !attachment)} 
-                        className={`p-3 rounded-full transition-all duration-200 ${(input.trim() || attachment) ? 'bg-zinc-900 dark:bg-white text-white dark:text-black shadow-md hover:opacity-90 active:scale-95' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-300 dark:text-zinc-600 cursor-not-allowed'}`}
-                      >
-                          <Send size={18} />
-                      </button>
+                    <button onClick={() => fileInputRef.current?.click()} className="p-3 text-zinc-400 hover:text-zinc-900 dark:hover:text-zinc-100 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors" title="Upload"><Plus size={20} /></button>
+                    <button onClick={() => setIsWebSearchActive(!isWebSearchActive)} className={`p-3 rounded-full transition-all ${isWebSearchActive ? 'text-blue-500 bg-blue-500/10' : 'text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-800'}`} title="Web Search"><Globe size={20} className={isWebSearchActive ? 'animate-pulse' : ''}/></button>
+                    <TextareaAutosize minRows={1} maxRows={8} value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Ask anything..." className={`flex-1 bg-transparent border-none focus:ring-0 py-3 px-2 text-[15px] resize-none max-h-[200px] overflow-y-auto ${theme === 'dark' ? 'text-zinc-100 placeholder:text-zinc-500' : 'text-zinc-900 placeholder:text-zinc-400'}`} />
+                    <button onClick={() => sendMessage(input)} disabled={loading || (!input.trim() && !attachment)} className={`p-3 rounded-full transition-all duration-200 ${(input.trim() || attachment) ? 'bg-zinc-900 dark:bg-white text-white dark:text-black shadow-md hover:opacity-90 active:scale-95' : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-300 dark:text-zinc-600 cursor-not-allowed'}`}><Send size={18} /></button>
                     </div>
                     <p className="text-center text-[10px] text-zinc-400 mt-4 opacity-60">Tawarln AI can make mistakes. Verify important info.</p>
                 </div></div>
@@ -1052,6 +897,10 @@ export default function Home() {
             )}
         </div>
       </main>
+
+      {isDeleteModalOpen && <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center"><div className="bg-zinc-900 p-6 rounded-2xl max-w-sm text-center border border-zinc-800"><div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500 mx-auto"><AlertTriangle size={28} /></div><h3 className="text-lg font-bold mb-2 text-white">Delete Chat?</h3><div className="flex gap-2 justify-center mt-4"><button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 rounded-lg bg-zinc-800 text-white">Cancel</button><button onClick={executeDeleteChat} className="px-4 py-2 rounded-lg bg-red-600 text-white">Delete</button></div></div></div>}
+      
+      {isSettingsOpen && <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"><div className="bg-zinc-900 p-6 rounded-2xl w-full max-w-md border border-zinc-800"><div className="flex justify-between mb-4"><h2 className="text-lg font-bold flex gap-2 items-center text-white"><Sliders size={18}/> Settings</h2><button onClick={() => setIsSettingsOpen(false)}><X size={18} className="text-zinc-500"/></button></div><div className="space-y-4"><label className="text-xs text-zinc-400 uppercase font-bold">System Instructions</label><textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="w-full h-32 bg-black/40 border border-zinc-700 rounded-xl p-3 text-sm text-white resize-none" placeholder="Custom instructions..." /><div className="flex justify-between items-center"><label className="text-xs text-zinc-400 uppercase font-bold">Temperature: {temperature}</label></div><input type="range" min="0" max="1" step="0.1" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full h-2 accent-blue-500 rounded-lg cursor-pointer bg-zinc-200 dark:bg-zinc-800 appearance-none" /><button onClick={() => setIsSettingsOpen(false)} className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-medium">Save</button></div></div></div>}
     </div>
   );
 }
