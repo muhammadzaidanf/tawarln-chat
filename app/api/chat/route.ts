@@ -6,6 +6,9 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import * as cheerio from 'cheerio';
 import type { ChatCompletionCreateParamsStreaming, ChatCompletionMessageParam } from 'openai/resources/index.mjs';
+import { OpenAIEmbeddings } from "@langchain/openai";
+
+export const runtime = 'nodejs';
 
 const client = new OpenAI({
   apiKey: process.env.KOLOSAL_API_KEY,
@@ -163,6 +166,48 @@ export async function POST(req: Request) {
 
     const { messages, model, systemPrompt, temperature, webSearch } = await req.json();
 
+    const lastMessage = messages[messages.length - 1];
+    let userQuery = '';
+
+    if (typeof lastMessage.content === 'string') {
+        userQuery = lastMessage.content;
+    } else if (Array.isArray(lastMessage.content)) {
+        const textPart = lastMessage.content.find((item: MessageContentPart) => item.type === 'text');
+        if (textPart && textPart.text) {
+            userQuery = textPart.text;
+        }
+    }
+    
+    if (!userQuery) userQuery = "User sent an image/file without text";
+
+    if (userQuery.length > 2000) {
+        return NextResponse.json({ error: 'Message too long' }, { status: 400 });
+    }
+
+    // --- RAG LOGIC: SEARCH KNOWLEDGE BASE ---
+    let knowledgeContext = "";
+    try {
+        // Generate embedding dari pertanyaan user
+        const embeddings = new OpenAIEmbeddings({
+            apiKey: process.env.OPENAI_API_KEY
+        });
+        const queryEmbedding = await embeddings.embedQuery(userQuery);
+
+        // Cari di Supabase via RPC match_knowledge
+        const { data: similarDocs } = await supabase.rpc('match_knowledge', {
+            query_embedding: queryEmbedding,
+            match_threshold: 0.5, // Tingkat kemiripan (0.0 - 1.0)
+            match_count: 5 // Ambil 5 potongan teks paling relevan
+        });
+
+        if (similarDocs && similarDocs.length > 0) {
+            knowledgeContext = similarDocs.map((doc: { content: string }) => doc.content).join("\n\n---\n\n");
+        }
+    } catch (error) {
+        console.error("RAG Error:", error);
+        // Lanjut aja kalau RAG gagal, jangan bikin chat error total
+    }
+
     const defaultSystemPrompt = `
 Kamu adalah Tawarln, asisten AI dari Zaidan Digital.
 
@@ -204,22 +249,9 @@ Kamu adalah Tawarln, asisten AI dari Zaidan Digital.
         finalSystemPrompt += `\n\n[INGATAN TENTANG USER]:\n${userMemory}\n(Gunakan informasi ini untuk mempersonalisasi jawaban).`;
     }
 
-    const lastMessage = messages[messages.length - 1];
-    let userQuery = '';
-
-    if (typeof lastMessage.content === 'string') {
-        userQuery = lastMessage.content;
-    } else if (Array.isArray(lastMessage.content)) {
-        const textPart = lastMessage.content.find((item: MessageContentPart) => item.type === 'text');
-        if (textPart && textPart.text) {
-            userQuery = textPart.text;
-        }
-    }
-    
-    if (!userQuery) userQuery = "User sent an image/file without text";
-
-    if (userQuery.length > 2000) {
-        return NextResponse.json({ error: 'Message too long' }, { status: 400 });
+    // --- INJECT KNOWLEDGE KE SYSTEM PROMPT ---
+    if (knowledgeContext) {
+        finalSystemPrompt += `\n\n[KNOWLEDGE BASE / DATA PERUSAHAAN (PENTING)]:\nBerikut adalah informasi internal Zaidan Digital yang relevan dengan pertanyaan user:\n\n${knowledgeContext}\n\n[INSTRUKSI]:\nGunakan informasi di atas sebagai acuan utama jawabanmu. Jika informasinya ada di situ, jawab sesuai data.`;
     }
 
     const finalMessages = [...messages];

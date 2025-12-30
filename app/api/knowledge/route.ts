@@ -22,6 +22,7 @@ export async function POST(req: Request) {
       }
     );
 
+    // 1. Cek User Login & Role
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user || !user.email) {
@@ -43,16 +44,32 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Forbidden: Access Denied' }, { status: 403 });
     }
 
+    // 2. Ambil Data (Bisa File atau Text)
     const formData = await req.formData();
-    const file = formData.get('file') as File;
+    const file = formData.get('file') as File | null;
+    const textInput = formData.get('text') as string | null;
+    const titleInput = formData.get('title') as string | null;
 
-    if (!file) return NextResponse.json({ error: 'No file' }, { status: 400 });
+    let rawText = "";
+    let sourceName = "";
 
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer = Buffer.from(arrayBuffer);
-    const data = await pdf(buffer);
-    const rawText = data.text;
+    // 3. Logic Parsing (Cabang File vs Text)
+    if (file) {
+        // --- JALUR PDF ---
+        const arrayBuffer = await file.arrayBuffer();
+        const buffer = Buffer.from(arrayBuffer);
+        const data = await pdf(buffer);
+        rawText = data.text;
+        sourceName = file.name;
+    } else if (textInput && titleInput) {
+        // --- JALUR MANUAL TEXT ---
+        rawText = `[JUDUL: ${titleInput}]\n${textInput}`; // Tambahin judul di konten biar AI tau konteksnya
+        sourceName = `Manual Note: ${titleInput}`;
+    } else {
+        return NextResponse.json({ error: 'No file or text provided' }, { status: 400 });
+    }
 
+    // 4. Proses Embedding (Sama untuk keduanya)
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
     const docs = await splitter.createDocuments([rawText]);
 
@@ -63,23 +80,24 @@ export async function POST(req: Request) {
       
       const { error } = await supabase.from('knowledge').insert({
           content: doc.pageContent,
-          metadata: { source: file.name, uploaded_by: user.email },
+          metadata: { source: sourceName, uploaded_by: user.email },
           embedding: embeddingVector
         });
 
       if (error) throw error;
     }
 
+    // 5. Catat Log
     await supabase.from('audit_logs').insert({
         user_id: user.id,
-        action: 'upload_knowledge',
-        details: { filename: file.name, chunks: docs.length }
+        action: 'add_knowledge',
+        details: { source: sourceName, type: file ? 'pdf' : 'text', chunks: docs.length }
     });
 
     return NextResponse.json({ success: true, chunks: docs.length });
 
   } catch (error) {
-    console.error('Upload Error:', error);
+    console.error('Processing Error:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
