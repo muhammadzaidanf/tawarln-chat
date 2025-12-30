@@ -8,6 +8,9 @@ import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
 // @ts-expect-error - pdf-parse types issue
 import pdf from 'pdf-parse';
 
+export const runtime = 'nodejs'; 
+export const maxDuration = 60;
+
 export async function POST(req: Request) {
   try {
     const cookieStore = await cookies();
