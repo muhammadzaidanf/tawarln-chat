@@ -10,6 +10,8 @@ export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
+  console.log("🚀 [API START] Request masuk ke /api/knowledge");
+
   try {
     const cookieStore = await cookies();
     const supabase = createServerClient(
@@ -22,13 +24,17 @@ export async function POST(req: Request) {
       }
     );
 
-    // 1. Cek User Login & Role
+    // 1. Cek User Login
+    console.log("🔍 [AUTH] Mengecek user session...");
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user || !user.email) {
+      console.log("❌ [AUTH] Unauthorized");
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    console.log("✅ [AUTH] User verified:", user.email);
 
+    // 2. Cek Role
     const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -36,15 +42,13 @@ export async function POST(req: Request) {
         .single();
 
     if (!profile || (profile.role !== 'admin' && profile.role !== 'owner')) {
-        await supabase.from('audit_logs').insert({
-            user_id: user.id,
-            action: 'unauthorized_upload_attempt',
-            details: { email: user.email }
-        });
+        console.log("❌ [AUTH] Role Forbidden:", profile?.role);
         return NextResponse.json({ error: 'Forbidden: Access Denied' }, { status: 403 });
     }
+    console.log("✅ [AUTH] Role authorized:", profile.role);
 
-    // 2. Ambil Data (Bisa File atau Text)
+    // 3. Ambil Data Form
+    console.log("📦 [DATA] Membaca FormData...");
     const formData = await req.formData();
     const file = formData.get('file') as File | null;
     const textInput = formData.get('text') as string | null;
@@ -53,29 +57,42 @@ export async function POST(req: Request) {
     let rawText = "";
     let sourceName = "";
 
-    // 3. Logic Parsing (Cabang File vs Text)
     if (file) {
-        // --- JALUR PDF ---
+        console.log("📂 [MODE] File Upload detected:", file.name);
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
         const data = await pdf(buffer);
         rawText = data.text;
         sourceName = file.name;
     } else if (textInput && titleInput) {
-        // --- JALUR MANUAL TEXT ---
-        rawText = `[JUDUL: ${titleInput}]\n${textInput}`; // Tambahin judul di konten biar AI tau konteksnya
+        console.log("📝 [MODE] Manual Text Input detected:", titleInput);
+        rawText = `[JUDUL: ${titleInput}]\n${textInput}`; 
         sourceName = `Manual Note: ${titleInput}`;
     } else {
+        console.log("❌ [DATA] Tidak ada file atau text");
         return NextResponse.json({ error: 'No file or text provided' }, { status: 400 });
     }
 
-    // 4. Proses Embedding (Sama untuk keduanya)
+    // 4. Proses Embedding
+    console.log("✂️ [PROCESS] Splitting text...");
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
     const docs = await splitter.createDocuments([rawText]);
+    console.log(`✅ [PROCESS] Terbagi menjadi ${docs.length} chunks`);
 
-    const embeddings = new OpenAIEmbeddings({ apiKey: process.env.OPENAI_API_KEY });
+    // CEK API KEY SEBELUM EMBEDDING
+    if (!process.env.OPENAI_API_KEY) {
+        throw new Error("OPENAI_API_KEY tidak ditemukan di Environment Variables Vercel!");
+    }
 
-    for (const doc of docs) {
+    console.log("🧠 [AI] Memulai Embedding ke OpenAI...");
+    const embeddings = new OpenAIEmbeddings({ 
+        apiKey: process.env.OPENAI_API_KEY 
+    });
+
+    for (const [index, doc] of docs.entries()) {
+      // Log progress per 5 chunk biar gak nyepam
+      if (index % 5 === 0) console.log(`⏳ [AI] Embedding chunk ${index + 1}/${docs.length}...`);
+      
       const embeddingVector = await embeddings.embedQuery(doc.pageContent);
       
       const { error } = await supabase.from('knowledge').insert({
@@ -84,20 +101,25 @@ export async function POST(req: Request) {
           embedding: embeddingVector
         });
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ [DB] Insert Error:", error);
+        throw error;
+      }
     }
 
     // 5. Catat Log
+    console.log("📝 [LOG] Menyimpan audit log...");
     await supabase.from('audit_logs').insert({
         user_id: user.id,
         action: 'add_knowledge',
         details: { source: sourceName, type: file ? 'pdf' : 'text', chunks: docs.length }
     });
 
+    console.log("🎉 [FINISH] Berhasil!");
     return NextResponse.json({ success: true, chunks: docs.length });
 
   } catch (error) {
-    console.error('Processing Error:', error);
+    console.error('🔥 [CRITICAL ERROR]:', error);
     const errorMessage = error instanceof Error ? error.message : 'Internal Server Error';
     return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
