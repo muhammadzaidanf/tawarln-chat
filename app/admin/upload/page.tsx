@@ -15,6 +15,7 @@ export default function AdminUpload() {
   const [isAuthorized, setIsAuthorized] = useState(false);
   const router = useRouter();
 
+  // 🛡️ AUTH CHECK
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -39,6 +40,7 @@ export default function AdminUpload() {
     setFile(null);
   };
 
+  // 🚀 UPLOAD LOGIC (ROBUST VERSION)
   const handleUpload = async () => {
     if (mode === 'file' && !file) return;
     if (mode === 'text' && (!textInput || !titleInput)) {
@@ -62,11 +64,22 @@ export default function AdminUpload() {
         body: formData,
       });
 
-      const data = await res.json();
+      const responseText = await res.text();
+      let data;
+      
+      try {
+        data = JSON.parse(responseText);
+      } catch (err) {
+        console.error("JSON Parse Error:", err); 
+        console.error("Raw Server Response:", responseText);
+        throw new Error("Server Error: Mungkin Timeout atau File terlalu besar.");
+      }
+
       if (!res.ok) throw new Error(data.error || 'Upload failed');
 
       toast.success(`Success! ${data.chunks} chunks embedded.`);
       
+      // Reset Form
       setFile(null);
       setTextInput('');
       setTitleInput('');
@@ -89,6 +102,7 @@ export default function AdminUpload() {
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] text-white flex items-center justify-center p-4 relative overflow-hidden">
+      {/* Background Effects */}
       <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]"></div>
       <div className="absolute top-0 left-0 w-96 h-96 bg-blue-600/10 rounded-full blur-[100px]"></div>
       <div className="absolute bottom-0 right-0 w-96 h-96 bg-purple-600/10 rounded-full blur-[100px]"></div>
@@ -97,6 +111,7 @@ export default function AdminUpload() {
       
       <div className="w-full max-w-lg bg-zinc-900/40 backdrop-blur-xl border border-zinc-800/60 rounded-3xl p-8 shadow-2xl relative z-10">
         
+        {/* Header */}
         <div className="flex items-center gap-4 mb-8">
             <div className="w-12 h-12 bg-gradient-to-br from-blue-600 to-blue-800 rounded-2xl flex items-center justify-center shadow-lg shadow-blue-900/20">
                 <ShieldAlert size={24} className="text-white" />
@@ -109,6 +124,7 @@ export default function AdminUpload() {
             </div>
         </div>
 
+        {/* Mode Switcher */}
         <div className="flex bg-zinc-950/40 p-1.5 rounded-xl mb-6 border border-zinc-800/50">
             <button 
                 onClick={() => setMode('file')}
@@ -132,7 +148,10 @@ export default function AdminUpload() {
             </button>
         </div>
 
+        {/* Input Area */}
         <div className="space-y-5">
+          
+          {/* File Mode */}
           {mode === 'file' && (
             <div className={`relative group border-2 border-dashed rounded-2xl p-8 text-center transition-all duration-300 ${
                 file 
@@ -176,6 +195,7 @@ export default function AdminUpload() {
             </div>
           )}
 
+          {/* Text Mode */}
           {mode === 'text' && (
             <div className="space-y-4 animate-in fade-in zoom-in-95 duration-300">
                 <div className="space-y-1.5">
@@ -201,6 +221,7 @@ export default function AdminUpload() {
             </div>
           )}
 
+          {/* Submit Button */}
           <button
             onClick={handleUpload}
             disabled={loading || (mode === 'file' && !file) || (mode === 'text' && (!textInput || !titleInput))}
@@ -215,6 +236,7 @@ export default function AdminUpload() {
           </button>
         </div>
 
+        {/* Footer Info */}
         <div className="mt-8 pt-6 border-t border-zinc-800/50">
             <div className="flex gap-3 items-start bg-blue-500/5 p-4 rounded-xl border border-blue-500/10">
                 <AlertCircle size={16} className="text-blue-400 mt-0.5 shrink-0" />
