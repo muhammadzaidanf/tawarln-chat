@@ -89,7 +89,6 @@ interface ChartConfig {
   title?: string;
 }
 
-// Interface for PDF.js text items
 interface TextItem {
   str: string;
 }
@@ -223,16 +222,10 @@ const CodeBlock = ({ inline, className, children, onOpenArtifact, ...props }: Co
           <span className="font-mono font-bold text-zinc-600 dark:text-zinc-400 uppercase">{language}</span>
           {isHtml && (
             <div className="flex bg-zinc-200 dark:bg-zinc-800 rounded p-0.5 ml-2">
-                <button 
-                  onClick={() => setMode('code')} 
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'code' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}
-                >
+                <button onClick={() => setMode('code')} className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'code' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}>
                     <Code size={12} /> Code
                 </button>
-                <button 
-                  onClick={() => setMode('preview')} 
-                  className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}
-                >
+                <button onClick={() => setMode('preview')} className={`flex items-center gap-1 px-2 py-0.5 rounded transition-all ${mode === 'preview' ? 'bg-white dark:bg-zinc-700 shadow-sm text-black dark:text-white' : 'text-zinc-500 hover:text-zinc-700'}`}>
                     <Eye size={12} /> Preview
                 </button>
             </div>
@@ -706,58 +699,9 @@ export default function Home() {
 
       {(activeMenuId || isModelMenuOpen || isProfileMenuOpen || isDeleteModalOpen) && <div className="fixed inset-0 z-[25]" onClick={closeAllMenus} />}
 
-      {isDeleteModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className={`border rounded-3xl w-full max-w-sm p-6 shadow-2xl relative scale-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                <div className="flex flex-col items-center text-center">
-                    <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500"><AlertTriangle size={28} /></div>
-                    <h3 className="text-lg font-bold mb-2">Delete Conversation?</h3>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 px-4">This action cannot be undone. The chat history will be permanently removed.</p>
-                    <div className="flex gap-3 w-full">
-                        <button onClick={() => setIsDeleteModalOpen(false)} className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'}`}>Cancel</button>
-                        <button onClick={executeDeleteChat} className="flex-1 py-3 rounded-xl text-sm font-medium bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20">Delete</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-      )}
-
-      {isSettingsOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
-            <div className={`border rounded-3xl w-full max-w-md p-6 relative shadow-2xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                <div className="flex justify-between items-center mb-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2"><Sliders size={20} className="text-blue-500"/> Preferences</h2>
-                    <button onClick={() => setIsSettingsOpen(false)} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X size={20} className="text-zinc-500"/></button>
-                </div>
-                
-                <div className="space-y-6">
-                    <div>
-                      <label className="text-xs font-semibold uppercase text-zinc-500 mb-2 block tracking-wider">System Instructions</label>
-                      <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className={`w-full h-32 bg-black/40 border border-zinc-700 rounded-xl p-3 text-sm text-white resize-none`} placeholder="Custom instructions..." />
-                    </div>
-                    <div>
-                      <label className="text-xs font-semibold uppercase text-zinc-500 mb-4 block flex justify-between tracking-wider"><span>Creativity Level</span> <span className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded text-[10px]">{temperature}</span></label>
-                      <input type="range" min="0" max="1" step="0.1" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full h-2 accent-blue-500 rounded-lg cursor-pointer bg-zinc-200 dark:bg-zinc-800 appearance-none" />
-                      <div className="flex justify-between text-[10px] text-zinc-500 mt-2">
-                          <span>Precise</span>
-                          <span>Balanced</span>
-                          <span>Creative</span>
-                      </div>
-                    </div>
-                </div>
-                <button onClick={() => setIsSettingsOpen(false)} className="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]">Save Changes</button>
-            </div>
-        </div>
-      )}
-
-      {/* SIDEBAR FIXED */}
+      {/* --- SIDEBAR --- */}
       <aside 
-        className={`
-            fixed inset-y-0 left-0 z-40 
-            w-[280px] border-r transform transition-transform duration-300 
-            ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'}
-            ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        `}
+        className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="flex flex-col h-full p-4 relative">
           
@@ -774,9 +718,7 @@ export default function Home() {
                 <span className={`text-xl font-bold tracking-tight bg-gradient-to-r from-blue-500 to-purple-500 text-transparent bg-clip-text`}>Tawarln</span>
             </div>
             
-            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg">
-                <PanelLeftClose size={20} />
-            </button>
+            <button onClick={() => setIsSidebarOpen(false)} className="md:hidden p-2 text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-lg"><PanelLeftClose size={20} /></button>
           </div>
 
           <button onClick={createNewChat} className={`group flex items-center justify-between w-full px-4 py-3.5 mb-6 rounded-2xl border text-sm font-medium transition-all ${theme === 'dark' ? 'border-zinc-800 bg-zinc-900 text-zinc-300 hover:border-zinc-700 hover:text-white' : 'bg-white border-zinc-200 text-zinc-700 hover:border-zinc-300 shadow-sm'}`}>
@@ -810,24 +752,19 @@ export default function Home() {
           
           <div className={`mt-2 pt-4 border-t ${theme === 'dark' ? 'border-zinc-900' : 'border-zinc-200'} relative`}>
              <button onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)} className={`flex items-center gap-3 w-full p-2 rounded-xl transition-colors ${theme === 'dark' ? 'hover:bg-zinc-900' : 'hover:bg-zinc-100'}`}>
-                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs">
-                    {user?.email?.slice(0,2).toUpperCase()}
-                </div>
+                <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 to-purple-600 flex items-center justify-center text-white font-bold text-xs">{user?.email?.slice(0,2).toUpperCase()}</div>
                 <div className="flex-1 text-left min-w-0">
                     <div className="text-xs font-medium truncate text-zinc-900 dark:text-zinc-200">{user?.email}</div>
                     <div className="text-[10px] text-zinc-500">Free Plan</div>
                 </div>
                 <ChevronDown size={14} className={`text-zinc-500 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
              </button>
-
-             {isProfileMenuOpen && (
-                <div className={`absolute bottom-full left-0 mb-2 w-full border rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-bottom-2 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
-                    <button onClick={() => { setIsSettingsOpen(true); setIsProfileMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200"><Sliders size={16} /> Preferences</button>
-                    <button onClick={toggleTheme} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200">{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>} {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button>
-                    <div className="h-[1px] bg-zinc-100 dark:bg-zinc-800 my-1"></div>
-                    <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"><LogOut size={16}/> Sign Out</button>
-                </div>
-             )}
+             {isProfileMenuOpen && <div className={`absolute bottom-full left-0 mb-2 w-full border rounded-2xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-bottom-2 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                <button onClick={() => { setIsSettingsOpen(true); setIsProfileMenuOpen(false); }} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200"><Sliders size={16} /> Preferences</button>
+                <button onClick={toggleTheme} className="flex items-center gap-3 px-4 py-2.5 text-sm w-full hover:bg-zinc-100 dark:hover:bg-zinc-800/50 transition-colors text-zinc-700 dark:text-zinc-200">{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>} {theme === 'dark' ? 'Light Mode' : 'Dark Mode'}</button>
+                <div className="h-[1px] bg-zinc-100 dark:bg-zinc-800 my-1"></div>
+                <button onClick={handleLogout} className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-500 w-full hover:bg-red-50 dark:hover:bg-red-900/10 transition-colors"><LogOut size={16}/> Sign Out</button>
+             </div>}
           </div>
         </div>
       </aside>
@@ -881,7 +818,7 @@ export default function Home() {
                 </header>
 
                 <div className="flex-1 overflow-y-auto pt-20">
-                    <div className={`max-w-3xl mx-auto px-4 pb-[180px] min-h-full flex flex-col ${currentMessages.length === 0 ? 'justify-center' : ''}`}>
+                    <div className={`max-w-3xl mx-auto px-4 pb-[180px] min-h-full flex flex-col justify-center`}>
                     
                     {currentMessages.length === 0 && (
                         <div className="flex flex-col items-center justify-center animate-in fade-in zoom-in-95 duration-500 py-10">
@@ -1060,6 +997,10 @@ export default function Home() {
             )}
         </div>
       </main>
+
+      {isDeleteModalOpen && <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center"><div className="bg-zinc-900 p-6 rounded-2xl max-w-sm text-center border border-zinc-800"><div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500 mx-auto"><AlertTriangle size={28} /></div><h3 className="text-lg font-bold mb-2 text-white">Delete Chat?</h3><div className="flex gap-2 justify-center mt-4"><button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 rounded-lg bg-zinc-800 text-white">Cancel</button><button onClick={executeDeleteChat} className="px-4 py-2 rounded-lg bg-red-600 text-white">Delete</button></div></div></div>}
+      
+      {isSettingsOpen && <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"><div className="bg-zinc-900 p-6 rounded-2xl w-full max-w-md border border-zinc-800"><div className="flex justify-between mb-4"><h2 className="text-lg font-bold flex gap-2 items-center text-white"><Sliders size={18}/> Settings</h2><button onClick={() => setIsSettingsOpen(false)}><X size={18} className="text-zinc-500"/></button></div><div className="space-y-4"><label className="text-xs text-zinc-400 uppercase font-bold">System Instructions</label><textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="w-full h-32 bg-black/40 border border-zinc-700 rounded-xl p-3 text-sm text-white resize-none" placeholder="Custom instructions..." /><div className="flex justify-between items-center"><label className="text-xs text-zinc-400 uppercase font-bold">Temperature: {temperature}</label></div><input type="range" min="0" max="1" step="0.1" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full h-2 accent-blue-500 rounded-lg cursor-pointer bg-zinc-200 dark:bg-zinc-800 appearance-none" /><button onClick={() => setIsSettingsOpen(false)} className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-medium">Save</button></div></div></div>}
     </div>
   );
 }
