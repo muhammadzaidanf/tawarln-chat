@@ -163,32 +163,35 @@ export async function POST(req: Request) {
 
     const { messages, model, systemPrompt, temperature, webSearch } = await req.json();
 
-    // --- SYSTEM PROMPT DIPERKETAT ---
     const defaultSystemPrompt = `
 Kamu adalah Tawarln, asisten AI dari Zaidan Digital.
 
-[ATURAN MERMAID JS (WAJIB PATUH)]:
-1.  Gunakan \`graph TD\` atau \`graph LR\`.
-2.  **ID Node HARUS diawali HURUF**.
-    - ❌ SALAH: \`1[Mulai]\`, \`2[Proses]\`
-    - ✅ BENAR: \`A[Mulai]\`, \`B[Proses]\`, \`N1[Step 1]\`
-3.  **Label Node HARUS pakai Tanda Kutip**.
-    - ❌ SALAH: \`A[Mulai Proses]\`
-    - ✅ BENAR: \`A["Mulai Proses"]\`
-4.  Jangan gunakan simbol aneh di ID Node (spasi, tanda kurung, dll).
-5.  Contoh Flowchart yang Benar:
-    \`\`\`mermaid
-    graph TD
-      A["User Masuk"] --> B{"Sudah Login?"}
-      B -- "Ya" --> C["Dashboard"]
-      B -- "Tidak" --> D["Halaman Login"]
-    \`\`\`
+[IDENTITAS & PROFIL]:
+- **Zaidan Digital**: Studio digital spesialis Next.js, performa tinggi, dan closing-oriented.
+- **Muhammad Zaidan Faiz**: Expert web dev, analitis, dan visioner.
+- **Gaya Bahasa**: Santai (bisa 'gw/lu'), cerdas, to-the-point.
 
-[IDENTITAS]:
-- Pembuat: Muhammad Zaidan Faiz (Zaidan Digital).
-- Gaya: Santai tapi profesional (boleh gw/lu).
+[ATURAN CHART / GRAFIK (WAJIB)]:
+- Jika user meminta data visual (statistik, perbandingan, tren), BUATKAN FORMAT JSON berikut di dalam blok kode \`json\`.
+- JANGAN gunakan Mermaid. Gunakan struktur JSON ini:
+\`\`\`json
+{
+  "chartType": "bar", // Pilihan: "bar", "line", "area", "pie"
+  "title": "Judul Grafik",
+  "data": [
+    { "name": "Label A", "value": 100 },
+    { "name": "Label B", "value": 200 }
+  ],
+  "dataKey": "value", // Key angka di objek data
+  "xAxisKey": "name", // Key label di objek data
+  "fill": "#3b82f6" // Warna hex (opsional)
+}
+\`\`\`
+- Pastikan JSON valid dan tidak ada komentar di dalamnya.
 
-Gunakan informasi ini untuk menjawab pertanyaan user.
+[ATURAN UMUM]:
+- Gunakan format Markdown rapi.
+- Gunakan list untuk poin-poin.
     `;
 
     const selectedModel = model || 'Claude Sonnet 4.5';
@@ -231,7 +234,7 @@ Gunakan informasi ini untuk menjawab pertanyaan user.
 ${scrapedContent}
 
 [INSTRUKSI]:
-User mengirimkan link. Gunakan ISI WEBSITE di atas untuk menjawab pertanyaan user.
+User mengirimkan link. Gunakan ISI WEBSITE di atas untuk menjawab pertanyaan user. Jangan halusinasi.
 
 [PERTANYAAN USER]:
 ${userQuery}`;
@@ -250,11 +253,11 @@ ${userQuery}`;
           
              if (searchResults) {
                 const injectedContent = `
-[HASIL PENCARIAN GOOGLE]:
+[HASIL PENCARIAN GOOGLE (Keyword: "${finalSearchQuery}")]:
 ${searchResults}
 
 [INSTRUKSI]:
-Jawab pertanyaan user berdasarkan info di atas. Sertakan sumber.
+Gunakan informasi di atas untuk menjawab pertanyaan user. Sertakan link referensi jika ada.
 
 [PERTANYAAN USER]:
 ${userQuery}`;
