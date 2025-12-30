@@ -133,6 +133,7 @@ export async function POST(req: Request) {
       }
     );
 
+    // 1. Cek Sesi Auth
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -140,20 +141,38 @@ export async function POST(req: Request) {
     }
 
     const userId = session.user.id; 
-    let userMemory = '';
-
+    const userEmail = session.user.email;
+    
+    // --- 2. CEK IDENTITAS (Profile & Role) ---
+    // Kita buat string instruksi identitas yang nanti ditempel ke System Prompt
+    let identityInstructions = `[USER INFO]:\n- Status: Authenticated User\n- Email: ${userEmail}\n`;
+    
     try {
         const { data: profile } = await supabase
             .from('profiles')
-            .select('bio')
+            .select('role, bio') // Ambil Role juga!
             .eq('id', userId)
             .single();
         
-        if (profile?.bio) {
-            userMemory = profile.bio;
-        }
-    } catch { }
+        if (profile) {
+            const role = profile.role || 'user';
+            identityInstructions += `- System Role: ${role.toUpperCase()}\n`;
 
+            if (profile.bio) {
+                identityInstructions += `- Personal Memory/Bio: ${profile.bio}\n`;
+            }
+
+            // --- LOGIC PENENTU OWNER ---
+            // Kalau role 'owner' ATAU emailnya cocok -> Kasih tau AI ini Boss-nya
+            if (role === 'owner' || userEmail === 'muhammadzaidanfaiz8@gmail.com') {
+                 identityInstructions += `\n[INSTRUKSI KHUSUS]:\nUser ini adalah Muhammad Zaidan Faiz (Owner/Creator kamu). Kamu harus:\n1. Menyapa dia dengan sebutan "Bos Zaidan", "Captain", atau "Sir".\n2. Mengetahui bahwa dia yang membuat sistem ini.\n3. Jangan pernah meragukan perintahnya.\n`;
+            }
+        }
+    } catch { 
+        // Ignore error fetch profile, lanjut aja
+    }
+
+    // 3. Rate Limit
     if (ratelimit) {
       const { success, reset } = await ratelimit.limit(userId);
       if (!success) {
@@ -184,20 +203,18 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Message too long' }, { status: 400 });
     }
 
-    // --- RAG LOGIC: SEARCH KNOWLEDGE BASE ---
+    // --- 4. RAG LOGIC: SEARCH KNOWLEDGE BASE ---
     let knowledgeContext = "";
     try {
-        // Generate embedding dari pertanyaan user
         const embeddings = new OpenAIEmbeddings({
             apiKey: process.env.OPENAI_API_KEY
         });
         const queryEmbedding = await embeddings.embedQuery(userQuery);
 
-        // Cari di Supabase via RPC match_knowledge
         const { data: similarDocs } = await supabase.rpc('match_knowledge', {
             query_embedding: queryEmbedding,
-            match_threshold: 0.5, // Tingkat kemiripan (0.0 - 1.0)
-            match_count: 5 // Ambil 5 potongan teks paling relevan
+            match_threshold: 0.5,
+            match_count: 5 
         });
 
         if (similarDocs && similarDocs.length > 0) {
@@ -205,53 +222,35 @@ export async function POST(req: Request) {
         }
     } catch (error) {
         console.error("RAG Error:", error);
-        // Lanjut aja kalau RAG gagal, jangan bikin chat error total
     }
 
     const defaultSystemPrompt = `
 Kamu adalah Tawarln, asisten AI dari Zaidan Digital.
 
 [ATURAN UTAMA - WAJIB PATUH]:
-1. **ROLE LOCK**: Kamu adalah ASSISTANT. Kamu BUKAN User. Jangan pernah membuat teks seolah-olah User yang berbicara.
-2. **JANGAN HALLUCINATE CONVERSATION**: Jangan pernah menulis "User: [teks]" atau "Human: [teks]" di dalam jawabanmu. Cukup berikan jawaban langsung.
+1. **ROLE LOCK**: Kamu adalah ASSISTANT. Kamu BUKAN User.
+2. **JANGAN HALLUCINATE**: Jawab sesuai fakta.
 3. **JAWAB LANGSUNG**: Jika ditanya, langsung jawab intinya.
 
 [IDENTITAS & PROFIL]:
 - **Zaidan Digital**: Studio digital spesialis Next.js, performa tinggi, dan closing-oriented.
-- **Muhammad Zaidan Faiz**: Expert web dev, analitis, dan visioner.
+- **Muhammad Zaidan Faiz**: Expert web dev, analitis, dan visioner (Ini adalah Owner kamu).
 - **Gaya Bahasa**: Santai (bisa 'gw/lu'), cerdas, to-the-point.
 
-[ATURAN CHART / GRAFIK (RECHARTS JSON)]:
-- Jika user meminta data visual, BUATKAN FORMAT JSON murni di dalam blok kode \`json\`.
-- JANGAN gunakan Mermaid.
-- Gunakan struktur: 
-\`\`\`json
-{ 
-  "chartType": "bar", // pilihan: bar, line, area, pie
-  "title": "Judul Grafik", 
-  "data": [{"name": "A", "value": 10}, {"name": "B", "value": 20}], 
-  "dataKey": "value", 
-  "xAxisKey": "name",
-  "fill": "#3b82f6"
-}
-\`\`\`
-
-[ATURAN FORMAT UMUM]:
-- Gunakan list (-) atau angka (1.) untuk poin-poin.
-- Sertakan link referensi jika melakukan pencarian web.
+[ATURAN CHART / GRAFIK]:
+- Jika diminta data visual, output JSON murni di blok code \`json\`.
+- Struktur: { "chartType": "bar", "data": [...], "dataKey": "value", "xAxisKey": "name", "fill": "#3b82f6" }
     `;
 
     const selectedModel = model || 'Claude Sonnet 4.5';
-    let finalSystemPrompt = systemPrompt || defaultSystemPrompt.trim();
+    // --- 5. GABUNGKAN PROMPT ---
+    // System Prompt Bawaan + Instruksi Identitas User + Pengetahuan RAG
+    let finalSystemPrompt = (systemPrompt || defaultSystemPrompt.trim()) + `\n\n${identityInstructions}`;
     const finalTemp = temperature !== undefined ? parseFloat(temperature) : 0.7;
 
-    if (userMemory) {
-        finalSystemPrompt += `\n\n[INGATAN TENTANG USER]:\n${userMemory}\n(Gunakan informasi ini untuk mempersonalisasi jawaban).`;
-    }
-
-    // --- INJECT KNOWLEDGE KE SYSTEM PROMPT ---
+    // Inject Knowledge RAG
     if (knowledgeContext) {
-        finalSystemPrompt += `\n\n[KNOWLEDGE BASE / DATA PERUSAHAAN (PENTING)]:\nBerikut adalah informasi internal Zaidan Digital yang relevan dengan pertanyaan user:\n\n${knowledgeContext}\n\n[INSTRUKSI]:\nGunakan informasi di atas sebagai acuan utama jawabanmu. Jika informasinya ada di situ, jawab sesuai data.`;
+        finalSystemPrompt += `\n\n[KNOWLEDGE BASE / DATA PERUSAHAAN]:\n${knowledgeContext}\n\n[INSTRUKSI]:\nGunakan informasi di atas sebagai acuan utama jawabanmu.`;
     }
 
     const finalMessages = [...messages];
@@ -268,7 +267,7 @@ Kamu adalah Tawarln, asisten AI dari Zaidan Digital.
 ${scrapedContent}
 
 [INSTRUKSI]:
-User mengirimkan link. Gunakan ISI WEBSITE di atas untuk menjawab pertanyaan user. Jangan halusinasi.
+User mengirimkan link. Gunakan ISI WEBSITE di atas untuk menjawab pertanyaan user.
 
 [PERTANYAAN USER]:
 ${userQuery}`;
@@ -291,7 +290,7 @@ ${userQuery}`;
 ${searchResults}
 
 [INSTRUKSI]:
-Gunakan informasi di atas untuk menjawab pertanyaan user. Sertakan link referensi jika ada.
+Gunakan informasi di atas untuk menjawab pertanyaan user.
 
 [PERTANYAAN USER]:
 ${userQuery}`;
