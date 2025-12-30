@@ -82,7 +82,7 @@ interface ArtifactState {
 
 interface ChartConfig {
   chartType: 'bar' | 'line' | 'area' | 'pie';
-  data: Record<string, string | number>[];
+  data: Array<Record<string, string | number>>;
   dataKey: string;
   xAxisKey: string;
   fill?: string;
@@ -126,7 +126,7 @@ const ChartRenderer = ({ config }: { config: ChartConfig }) => {
             ) : chartType === 'pie' ? (
                 <PieChart>
                     <Pie data={data} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey={dataKey || 'value'}>
-                        {data.map((_entry, index: number) => (
+                        {data.map((_entry, index) => (
                             <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                         ))}
                     </Pie>
@@ -541,12 +541,20 @@ export default function Home() {
     }
   };
 
+  // ✅ CRITICAL FIX: Passing newMessagesState to prevent Race Condition (User message disappearing)
   const handleStreamingResponse = async (payload: ChatPayload, sessionId: string, newMessagesState: Message[]) => {
     setLoading(true);
     abortControllerRef.current = new AbortController();
     
     const initialBotMsg: Message = { role: 'assistant', content: '' };
-    setSessions(prev => prev.map(s => s.id === sessionId ? { ...s, messages: [...newMessagesState, initialBotMsg] } : s));
+    
+    // 1. Set Initial State with User Msg + Bot Placeholder
+    setSessions(prev => prev.map(s => {
+        if (s.id === sessionId) {
+            return { ...s, messages: [...newMessagesState, initialBotMsg] };
+        }
+        return s;
+    }));
 
     try {
       const res = await fetch('/api/chat', {
@@ -566,6 +574,7 @@ export default function Home() {
         const chunkValue = decoder.decode(value, { stream: true });
         streamedText += chunkValue;
         
+        // 2. Update Bot Message Content Only
         setSessions(prev => prev.map(s => {
             if (s.id === sessionId) {
                 const updatedMsgs = [...s.messages];
@@ -580,6 +589,7 @@ export default function Home() {
         }));
       }
       
+      // 3. Sync to DB
       setSessions(prev => {
           const session = prev.find(s => s.id === sessionId);
           if (session) syncSessionToDb(session);
@@ -587,6 +597,7 @@ export default function Home() {
       });
     } catch (error: unknown) {
       if (error instanceof Error && error.name === 'AbortError') {
+         // handled by UI
       } else {
         toast.error('Error generating response.');
       }
@@ -629,9 +640,9 @@ export default function Home() {
     
     const currentSession = sessions.find(s => s.id === currentSessionId);
     const currentHistory = currentSession?.messages || [];
-    
     const newMessagesWithUser = [...currentHistory, userMsg];
 
+    // Optimistic Update
     setSessions(prev => prev.map(session => {
         if (session.id === currentSessionId) {
             const newTitle = session.messages.length === 0 ? (typeof userContent === 'string' ? userContent.slice(0,30) : 'File Analysis') : session.title;
@@ -646,6 +657,7 @@ export default function Home() {
     
     const payload = [...currentHistory.map(m => ({ role: m.role, content: m.content })), { role: 'user', content: apiContent }];
     
+    // Pass newMessagesWithUser directly to prevent race condition
     await handleStreamingResponse({ messages: payload, model: selectedModel, systemPrompt, temperature, webSearch: isWebSearchActive }, currentSessionId, newMessagesWithUser);
   };
 
@@ -699,7 +711,51 @@ export default function Home() {
 
       {(activeMenuId || isModelMenuOpen || isProfileMenuOpen || isDeleteModalOpen) && <div className="fixed inset-0 z-[25]" onClick={closeAllMenus} />}
 
-      {/* --- SIDEBAR --- */}
+      {isDeleteModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className={`border rounded-3xl w-full max-w-sm p-6 shadow-2xl relative scale-100 ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                <div className="flex flex-col items-center text-center">
+                    <div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500 mx-auto"><AlertTriangle size={28} /></div>
+                    <h3 className="text-lg font-bold mb-2">Delete Conversation?</h3>
+                    <p className="text-sm text-zinc-500 dark:text-zinc-400 mb-8 px-4">This action cannot be undone. The chat history will be permanently removed.</p>
+                    <div className="flex gap-3 w-full">
+                        <button onClick={() => setIsDeleteModalOpen(false)} className={`flex-1 py-3 rounded-xl text-sm font-medium transition-colors ${theme === 'dark' ? 'bg-zinc-800 hover:bg-zinc-700' : 'bg-zinc-100 hover:bg-zinc-200'}`}>Cancel</button>
+                        <button onClick={executeDeleteChat} className="flex-1 py-3 rounded-xl text-sm font-medium bg-red-600 hover:bg-red-700 text-white shadow-lg shadow-red-600/20">Delete</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+      )}
+      
+      {isSettingsOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in">
+            <div className={`border rounded-3xl w-full max-w-md p-6 relative shadow-2xl ${theme === 'dark' ? 'bg-zinc-900 border-zinc-800' : 'bg-white border-zinc-200'}`}>
+                <div className="flex justify-between items-center mb-6">
+                    <h2 className="text-xl font-bold flex items-center gap-2"><Sliders size={20} className="text-blue-500"/> Preferences</h2>
+                    <button onClick={() => setIsSettingsOpen(false)} className="p-2 rounded-full hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-colors"><X size={20} className="text-zinc-500"/></button>
+                </div>
+                
+                <div className="space-y-6">
+                    <div>
+                      <label className="text-xs font-semibold uppercase text-zinc-500 mb-2 block tracking-wider">System Instructions</label>
+                      <textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className={`w-full h-32 bg-black/40 border border-zinc-700 rounded-xl p-3 text-sm text-white resize-none`} placeholder="Custom instructions..." />
+                    </div>
+                    <div>
+                      <label className="text-xs font-semibold uppercase text-zinc-500 mb-4 block flex justify-between tracking-wider"><span>Creativity Level</span> <span className="bg-blue-500/10 text-blue-500 px-2 py-0.5 rounded text-[10px]">{temperature}</span></label>
+                      <input type="range" min="0" max="1" step="0.1" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full h-2 accent-blue-500 rounded-lg cursor-pointer bg-zinc-200 dark:bg-zinc-800 appearance-none" />
+                      <div className="flex justify-between text-[10px] text-zinc-500 mt-2">
+                          <span>Precise</span>
+                          <span>Balanced</span>
+                          <span>Creative</span>
+                      </div>
+                    </div>
+                </div>
+                <button onClick={() => setIsSettingsOpen(false)} className="w-full mt-8 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 rounded-xl transition-all shadow-lg shadow-blue-600/20 active:scale-[0.98]">Save Changes</button>
+            </div>
+        </div>
+      )}
+
+      {/* SIDEBAR FIXED */}
       <aside 
         className={`fixed inset-y-0 left-0 z-40 w-[280px] border-r transform transition-transform duration-300 ${theme === 'dark' ? 'bg-zinc-950 border-zinc-900' : 'bg-zinc-50 border-zinc-200'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
@@ -771,7 +827,6 @@ export default function Home() {
 
       {/* --- MAIN AREA --- */}
       <main className={`flex-1 flex flex-col relative w-full h-full overflow-hidden transition-all duration-300 ease-in-out ${isSidebarOpen ? 'md:ml-[280px]' : 'md:ml-0'}`}>
-        {/* ARTIFACTS SPLIT VIEW */}
         <div className="flex w-full h-full relative">
             
             {/* CHAT AREA */}
@@ -997,10 +1052,6 @@ export default function Home() {
             )}
         </div>
       </main>
-
-      {isDeleteModalOpen && <div className="fixed inset-0 bg-black/80 z-[60] flex items-center justify-center"><div className="bg-zinc-900 p-6 rounded-2xl max-w-sm text-center border border-zinc-800"><div className="w-14 h-14 bg-red-500/10 rounded-full flex items-center justify-center mb-4 text-red-500 mx-auto"><AlertTriangle size={28} /></div><h3 className="text-lg font-bold mb-2 text-white">Delete Chat?</h3><div className="flex gap-2 justify-center mt-4"><button onClick={() => setIsDeleteModalOpen(false)} className="px-4 py-2 rounded-lg bg-zinc-800 text-white">Cancel</button><button onClick={executeDeleteChat} className="px-4 py-2 rounded-lg bg-red-600 text-white">Delete</button></div></div></div>}
-      
-      {isSettingsOpen && <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center"><div className="bg-zinc-900 p-6 rounded-2xl w-full max-w-md border border-zinc-800"><div className="flex justify-between mb-4"><h2 className="text-lg font-bold flex gap-2 items-center text-white"><Sliders size={18}/> Settings</h2><button onClick={() => setIsSettingsOpen(false)}><X size={18} className="text-zinc-500"/></button></div><div className="space-y-4"><label className="text-xs text-zinc-400 uppercase font-bold">System Instructions</label><textarea value={systemPrompt} onChange={(e) => setSystemPrompt(e.target.value)} className="w-full h-32 bg-black/40 border border-zinc-700 rounded-xl p-3 text-sm text-white resize-none" placeholder="Custom instructions..." /><div className="flex justify-between items-center"><label className="text-xs text-zinc-400 uppercase font-bold">Temperature: {temperature}</label></div><input type="range" min="0" max="1" step="0.1" value={temperature} onChange={(e) => setTemperature(parseFloat(e.target.value))} className="w-full h-2 accent-blue-500 rounded-lg cursor-pointer bg-zinc-200 dark:bg-zinc-800 appearance-none" /><button onClick={() => setIsSettingsOpen(false)} className="w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-medium">Save</button></div></div></div>}
     </div>
   );
 }
