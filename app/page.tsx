@@ -20,6 +20,16 @@ import { Toaster, toast } from 'sonner';
 import { supabase } from './supabaseClient';
 import { User } from '@supabase/supabase-js';
 
+// --- INITIALIZE MERMAID ONCE ---
+if (typeof window !== 'undefined') {
+  mermaid.initialize({
+    startOnLoad: false,
+    theme: 'dark',
+    securityLevel: 'loose',
+    fontFamily: 'inherit'
+  });
+}
+
 // --- CONSTANTS ---
 const MODELS = [
   { id: 'Claude Sonnet 4.5', name: 'Claude 4.5 Sonnet', desc: 'Superior Reasoning' },
@@ -81,51 +91,44 @@ interface ArtifactState {
   type: 'code' | 'mermaid';
 }
 
-// --- COMPONENT: MERMAID RENDERER ---
+// --- FIXED MERMAID COMPONENT ---
 const Mermaid = ({ chart }: { chart: string }) => {
   const [svg, setSvg] = useState<string>('');
   const [isError, setIsError] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    mermaid.initialize({ 
-        startOnLoad: false, 
-        theme: 'dark',
-        securityLevel: 'loose',
-        fontFamily: 'inherit'
-    });
-
     const renderChart = async () => {
+      if (!chart) return;
       try {
         const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
         const { svg } = await mermaid.render(id, chart);
         setSvg(svg);
         setIsError(false);
       } catch (error) {
-        console.error('Mermaid Error:', error);
+        console.error('Mermaid Render Error:', error);
         setIsError(true);
       }
     };
-
     renderChart();
   }, [chart]);
 
   if (isError) {
     return (
       <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg text-red-500 text-xs font-mono">
-        Failed to render diagram. Syntax might be incorrect.
+        Diagram syntax error. Please try regenerating.
         <pre className="mt-2 text-zinc-500 whitespace-pre-wrap">{chart}</pre>
       </div>
     );
   }
 
   return (
-    <div className="w-full h-full flex items-center justify-center p-4 bg-white dark:bg-[#1e1e24] overflow-auto rounded-xl">
+    <div ref={containerRef} className="my-4 overflow-x-auto bg-white dark:bg-[#1e1e24] p-4 rounded-xl border border-zinc-200 dark:border-zinc-800 flex justify-center items-center min-h-[100px]">
         {svg ? <div dangerouslySetInnerHTML={{ __html: svg }} /> : <div className="text-xs text-zinc-500 animate-pulse">Rendering diagram...</div>}
     </div>
   );
 };
 
-// --- COMPONENT: CODE BLOCK ---
 interface CodeProps extends ComponentPropsWithoutRef<'code'> { 
     inline?: boolean; 
     onOpenArtifact?: (content: string, language: string, type: 'code' | 'mermaid') => void;

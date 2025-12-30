@@ -36,7 +36,6 @@ interface MessageContentPart {
   image_url?: { url: string };
 }
 
-// --- HELPER 1: GOOGLE SEARCH ---
 async function googleSearch(query: string) {
   try {
     const apiKey = process.env.GOOGLE_API_KEY;
@@ -57,7 +56,6 @@ async function googleSearch(query: string) {
   }
 }
 
-// --- HELPER 2: DEEP SCRAPER ---
 async function scrapeUrl(url: string) {
   try {
     const res = await fetch(url, {
@@ -85,7 +83,6 @@ async function scrapeUrl(url: string) {
   }
 }
 
-// --- HELPER 3: SMART QUERY GENERATOR ---
 async function generateSearchKeyword(messages: ChatCompletionMessageParam[], model: string) {
     try {
         const recentMessages = messages.slice(-3);
@@ -106,7 +103,6 @@ async function generateSearchKeyword(messages: ChatCompletionMessageParam[], mod
     }
 }
 
-// --- MAIN HANDLER ---
 export async function POST(req: Request) {
   try {
     const sbUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -167,35 +163,32 @@ export async function POST(req: Request) {
 
     const { messages, model, systemPrompt, temperature, webSearch } = await req.json();
 
-    // --- SYSTEM PROMPT (PERBAIKAN MERMAID) ---
+    // --- SYSTEM PROMPT DIPERKETAT ---
     const defaultSystemPrompt = `
 Kamu adalah Tawarln, asisten AI dari Zaidan Digital.
 
-[IDENTITAS & PROFIL]:
-- **Zaidan Digital**: Studio digital spesialis Next.js, performa tinggi, dan closing-oriented.
-- **Muhammad Zaidan Faiz**: Expert web dev, analitis, dan visioner.
-- **Gaya Bahasa**: Santai (bisa 'gw/lu'), cerdas, to-the-point.
+[ATURAN MERMAID JS (WAJIB PATUH)]:
+1.  Gunakan \`graph TD\` atau \`graph LR\`.
+2.  **ID Node HARUS diawali HURUF**.
+    - ❌ SALAH: \`1[Mulai]\`, \`2[Proses]\`
+    - ✅ BENAR: \`A[Mulai]\`, \`B[Proses]\`, \`N1[Step 1]\`
+3.  **Label Node HARUS pakai Tanda Kutip**.
+    - ❌ SALAH: \`A[Mulai Proses]\`
+    - ✅ BENAR: \`A["Mulai Proses"]\`
+4.  Jangan gunakan simbol aneh di ID Node (spasi, tanda kurung, dll).
+5.  Contoh Flowchart yang Benar:
+    \`\`\`mermaid
+    graph TD
+      A["User Masuk"] --> B{"Sudah Login?"}
+      B -- "Ya" --> C["Dashboard"]
+      B -- "Tidak" --> D["Halaman Login"]
+    \`\`\`
 
-[ATURAN MERMAID JS (VISUALISASI)]:
-- Jika diminta diagram/flowchart, gunakan blok kode \`mermaid\`.
-- **PENTING UNTUK MENGHINDARI ERROR:**
-  1. Gunakan \`graph TD\` atau \`graph LR\` (JANGAN gunakan 'chart').
-  2. ID Node harus alfanumerik tanpa spasi (contoh: A, B, Node1).
-  3. Teks label WAJIB memakai tanda kutip. Contoh: \`A["Mulai Login"]\`.
-  4. Jangan gunakan simbol (?, !, &, dll) di luar tanda kutip label.
-  5. Contoh Benar:
-     \`\`\`mermaid
-     graph TD
-       A["User Datang"] --> B{"Sudah Login?"}
-       B -- Ya --> C["Dashboard"]
-       B -- Tidak --> D["Halaman Login"]
-     \`\`\`
+[IDENTITAS]:
+- Pembuat: Muhammad Zaidan Faiz (Zaidan Digital).
+- Gaya: Santai tapi profesional (boleh gw/lu).
 
-[ATURAN FORMAT LAIN]:
-- Gunakan list (-) atau angka (1.) untuk poin-poin.
-- Sertakan link referensi jika melakukan pencarian web.
-
-Gunakan informasi ini untuk menjawab seakurat dan seaman mungkin.
+Gunakan informasi ini untuk menjawab pertanyaan user.
     `;
 
     const selectedModel = model || 'Claude Sonnet 4.5';
@@ -238,7 +231,7 @@ Gunakan informasi ini untuk menjawab seakurat dan seaman mungkin.
 ${scrapedContent}
 
 [INSTRUKSI]:
-User mengirimkan link. Gunakan ISI WEBSITE di atas untuk menjawab pertanyaan user. Jangan halusinasi.
+User mengirimkan link. Gunakan ISI WEBSITE di atas untuk menjawab pertanyaan user.
 
 [PERTANYAAN USER]:
 ${userQuery}`;
@@ -257,11 +250,11 @@ ${userQuery}`;
           
              if (searchResults) {
                 const injectedContent = `
-[HASIL PENCARIAN GOOGLE (Keyword: "${finalSearchQuery}")]:
+[HASIL PENCARIAN GOOGLE]:
 ${searchResults}
 
 [INSTRUKSI]:
-Gunakan informasi di atas untuk menjawab pertanyaan user. Sertakan link referensi jika ada.
+Jawab pertanyaan user berdasarkan info di atas. Sertakan sumber.
 
 [PERTANYAAN USER]:
 ${userQuery}`;
