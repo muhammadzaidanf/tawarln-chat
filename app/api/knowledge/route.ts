@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai"; 
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 // @ts-expect-error - pdf-parse does not have type definitions
 import pdf from 'pdf-parse';
@@ -68,23 +68,22 @@ export async function POST(req: Request) {
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
     const docs = await splitter.createDocuments([rawText]);
 
-    // --- MODIFIKASI: PAKE GOOGLE GEMINI BUAT EMBEDDING ---
+    // --- MODIFIKASI: PAKE VARIABLE BARU 'GOOGLEAI_API_KEY' ---
     console.log("🧠 [AI] Memulai Embedding via GOOGLE GEMINI...");
     
-    if (!process.env.GOOGLE_API_KEY) {
-        throw new Error("GOOGLE_API_KEY gak ada di env bang!");
+    // Ganti nama variabel env-nya di sini
+    if (!process.env.GOOGLEAI_API_KEY) {
+        throw new Error("GOOGLEAI_API_KEY gak ada di env bang!");
     }
 
-    // Gunakan Model Embedding Google (Gratis & Stabil)
     const embeddings = new GoogleGenerativeAIEmbeddings({
-        apiKey: process.env.GOOGLE_API_KEY,
-        modelName: "embedding-001", // Model khusus ingatan
+        apiKey: process.env.GOOGLEAI_API_KEY, // <--- PAKE KEY KHUSUS AI
+        modelName: "embedding-001", 
     });
 
     for (const doc of docs.entries()) {
       const docContent = doc[1].pageContent;
       
-      // Proses ubah teks jadi angka (vector)
       const embeddingVector = await embeddings.embedQuery(docContent);
       
       const { error } = await supabase.from('knowledge').insert({
