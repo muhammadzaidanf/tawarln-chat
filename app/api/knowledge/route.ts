@@ -2,13 +2,11 @@ import { NextResponse } from 'next/server';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { OpenAIEmbeddings } from "@langchain/openai";
-
-// @ts-expect-error - Langchain types issue
-import { RecursiveCharacterTextSplitter } from "langchain/text_splitter";
-// @ts-expect-error - pdf-parse types issue
+import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
+// @ts-expect-error - pdf-parse does not have type definitions
 import pdf from 'pdf-parse';
 
-export const runtime = 'nodejs'; 
+export const runtime = 'nodejs';
 export const maxDuration = 60;
 
 export async function POST(req: Request) {
@@ -24,23 +22,19 @@ export async function POST(req: Request) {
       }
     );
 
-    // 1. Cek User Login
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user || !user.email) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // 2. Cek Role di Database (Konsisten dengan Middleware)
     const { data: profile } = await supabase
         .from('profiles')
         .select('role')
         .eq('id', user.id)
         .single();
 
-    // Hanya Owner & Admin yang boleh upload
     if (!profile || (profile.role !== 'admin' && profile.role !== 'owner')) {
-        // Catat percobaan akses ilegal ke Audit Log
         await supabase.from('audit_logs').insert({
             user_id: user.id,
             action: 'unauthorized_upload_attempt',
@@ -49,7 +43,6 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Forbidden: Access Denied' }, { status: 403 });
     }
 
-    // 3. Proses File
     const formData = await req.formData();
     const file = formData.get('file') as File;
 
@@ -60,13 +53,11 @@ export async function POST(req: Request) {
     const data = await pdf(buffer);
     const rawText = data.text;
 
-    // 4. Chunking & Embedding
     const splitter = new RecursiveCharacterTextSplitter({ chunkSize: 1000, chunkOverlap: 200 });
     const docs = await splitter.createDocuments([rawText]);
 
     const embeddings = new OpenAIEmbeddings({ apiKey: process.env.OPENAI_API_KEY });
 
-    // 5. Simpan ke Vector Store
     for (const doc of docs) {
       const embeddingVector = await embeddings.embedQuery(doc.pageContent);
       
@@ -79,7 +70,6 @@ export async function POST(req: Request) {
       if (error) throw error;
     }
 
-    // 6. Catat Aktivitas Sukses ke Audit Log
     await supabase.from('audit_logs').insert({
         user_id: user.id,
         action: 'upload_knowledge',
