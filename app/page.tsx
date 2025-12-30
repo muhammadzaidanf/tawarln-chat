@@ -100,9 +100,16 @@ const Mermaid = ({ chart }: { chart: string }) => {
   useEffect(() => {
     const renderChart = async () => {
       if (!chart) return;
+      
+      // AUTO-FIXER: Paksa ID angka jadi huruf (1 -> N1) untuk mencegah error
+      const cleanCode = chart
+        .replace(/(\s|>)(\d+)(\[|\(|\{)/g, '$1N$2$3') 
+        .replace(/^(\d+)(\[|\(|\{)/gm, 'N$1$2')       
+        .replace(/(-->|-.->|==>)\s*(\d+)/g, '$1 N$2');
+
       try {
         const id = `mermaid-${Math.random().toString(36).substr(2, 9)}`;
-        const { svg } = await mermaid.render(id, chart);
+        const { svg } = await mermaid.render(id, cleanCode);
         setSvg(svg);
         setIsError(false);
       } catch (error) {
@@ -116,7 +123,7 @@ const Mermaid = ({ chart }: { chart: string }) => {
   if (isError) {
     return (
       <div className="p-4 border border-red-500/20 bg-red-500/10 rounded-lg text-red-500 text-xs font-mono">
-        Diagram syntax error. Please try regenerating.
+        Diagram syntax error. Please regenerate response.
         <pre className="mt-2 text-zinc-500 whitespace-pre-wrap">{chart}</pre>
       </div>
     );
@@ -239,6 +246,7 @@ export default function Home() {
   const [isWebSearchActive, setIsWebSearchActive] = useState(false);
   const [randomSuggestions, setRandomSuggestions] = useState<typeof ALL_SUGGESTIONS>([]);
   
+  // --- ARTIFACT STATE (DIPAKAI DI JSX BAWAH) ---
   const [artifact, setArtifact] = useState<ArtifactState>({ isOpen: false, content: '', language: '', type: 'code' });
 
   const [selectedModel, setSelectedModel] = useState(MODELS[0].id);
@@ -801,6 +809,7 @@ export default function Home() {
                 </div></div>
             </div>
 
+            {/* ARTIFACT SIDE PANEL */}
             {artifact.isOpen && (
                 <div className="w-full md:w-1/2 h-full border-l border-zinc-200 dark:border-zinc-800 bg-white dark:bg-[#121214] flex flex-col absolute md:static z-50 animate-in slide-in-from-right-10 duration-300">
                     <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900">
