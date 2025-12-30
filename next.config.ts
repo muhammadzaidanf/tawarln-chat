@@ -10,8 +10,9 @@ const nextConfig: NextConfig = {
     "langchain",
     "@langchain/openai",
     "@langchain/core",
-    "@langchain/textsplitters" 
-],
+    "@langchain/textsplitters",
+    "@langchain/google-genai" 
+  ],
 
   images: {
     remotePatterns: [
