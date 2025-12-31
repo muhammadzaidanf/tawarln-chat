@@ -5,7 +5,7 @@ import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
 
 export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const maxDuration = 60; // Maksimalin waktu (Vercel Hobby max 10s-60s)
 
 export async function POST(req: Request) {
   try {
@@ -53,17 +53,14 @@ export async function POST(req: Request) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
 
-        // --- 🛠️ FIX KHUSUS VERCEL (POLYFILL) ---
-        // Kita tipu server biar dikira punya fitur Browser (Canvas/DOM)
+        // --- POLYFILL VERCEL ---
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const globalAny = global as any;
-        
         if (!globalAny.DOMMatrix) globalAny.DOMMatrix = class {};
         if (!globalAny.ImageData) globalAny.ImageData = class {};
         if (!globalAny.Path2D) globalAny.Path2D = class {};
         if (!globalAny.Promise) globalAny.Promise = Promise;
 
-        // --- DYNAMIC IMPORT (PENTING) ---
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pdfModule = await import('pdf-parse') as any;
         const pdfParse = pdfModule.default || pdfModule;
@@ -86,18 +83,34 @@ export async function POST(req: Request) {
         modelName: "embedding-001", 
     });
 
-    for (const doc of docs) {
-        const docContent = doc.pageContent;
-        const embeddingVector = await embeddings.embedQuery(docContent);
+    // --- OPTIMASI SPEED (BATCH PROCESSING) ---
+    // Kita proses embedding secara paralel (max 10 sekaligus biar Google gak marah)
+    const batchSize = 10;
+    const dataToInsert = [];
+
+    for (let i = 0; i < docs.length; i += batchSize) {
+        const batch = docs.slice(i, i + batchSize);
         
-        const { error } = await supabase.from('knowledge').insert({
-            content: docContent,
-            metadata: { source: sourceName, uploaded_by: user.email },
-            embedding: embeddingVector
+        // Proses 1 batch secara paralel
+        const batchPromises = batch.map(async (doc) => {
+            const vector = await embeddings.embedQuery(doc.pageContent);
+            return {
+                content: doc.pageContent,
+                metadata: { source: sourceName, uploaded_by: user.email },
+                embedding: vector
+            };
         });
 
-        if (error) throw error;
+        // Tunggu batch ini kelar
+        const batchResults = await Promise.all(batchPromises);
+        dataToInsert.push(...batchResults);
     }
+
+    // --- BULK INSERT (SEKALI JALAN) ---
+    // Kirim semua data ke Supabase dalam 1 request (Hemat Waktu)
+    const { error } = await supabase.from('knowledge').insert(dataToInsert);
+
+    if (error) throw error;
 
     await supabase.from('audit_logs').insert({
         user_id: user.id,
