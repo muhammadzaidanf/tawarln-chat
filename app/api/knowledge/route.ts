@@ -3,8 +3,6 @@ import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 import { RecursiveCharacterTextSplitter } from "@langchain/textsplitters";
-// @ts-expect-error - pdf-parse does not have type definitions
-import pdf from 'pdf-parse';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -54,7 +52,23 @@ export async function POST(req: Request) {
     if (file) {
         const arrayBuffer = await file.arrayBuffer();
         const buffer = Buffer.from(arrayBuffer);
-        const data = await pdf(buffer);
+
+        // --- 🛠️ FIX KHUSUS VERCEL (POLYFILL) ---
+        // Kita tipu server biar dikira punya fitur Browser (Canvas/DOM)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const globalAny = global as any;
+        
+        if (!globalAny.DOMMatrix) globalAny.DOMMatrix = class {};
+        if (!globalAny.ImageData) globalAny.ImageData = class {};
+        if (!globalAny.Path2D) globalAny.Path2D = class {};
+        if (!globalAny.Promise) globalAny.Promise = Promise;
+
+        // --- DYNAMIC IMPORT (PENTING) ---
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pdfModule = await import('pdf-parse') as any;
+        const pdfParse = pdfModule.default || pdfModule;
+        
+        const data = await pdfParse(buffer);
         rawText = data.text;
         sourceName = file.name;
     } else if (textInput && titleInput) {
@@ -69,7 +83,7 @@ export async function POST(req: Request) {
 
     const embeddings = new GoogleGenerativeAIEmbeddings({
         apiKey: apiKey, 
-        modelName: "gemini-embedding-001", 
+        modelName: "embedding-001", 
     });
 
     for (const doc of docs) {

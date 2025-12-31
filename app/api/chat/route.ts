@@ -6,10 +6,12 @@ import { Ratelimit } from '@upstash/ratelimit';
 import { Redis } from '@upstash/redis';
 import * as cheerio from 'cheerio';
 import type { ChatCompletionCreateParamsStreaming, ChatCompletionMessageParam } from 'openai/resources/index.mjs';
-import { OpenAIEmbeddings } from "@langchain/openai";
+// 👇 UBAH IMPORT DARI OPENAI KE GOOGLE
+import { GoogleGenerativeAIEmbeddings } from "@langchain/google-genai";
 
 export const runtime = 'nodejs';
 
+// 1. CHAT TETAP PAKE KOLOSAL
 const client = new OpenAI({
   apiKey: process.env.KOLOSAL_API_KEY,
   baseURL: 'https://api.kolosal.ai/v1',
@@ -41,7 +43,7 @@ interface MessageContentPart {
 
 async function googleSearch(query: string) {
   try {
-    const apiKey = process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.GOOGLE_API_KEY; // Ini key buat SEARCH
     const cx = process.env.GOOGLE_CX_ID;
     
     if (!apiKey || !cx) return null;
@@ -133,7 +135,6 @@ export async function POST(req: Request) {
       }
     );
 
-    // 1. Cek Sesi Auth
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session) {
@@ -143,14 +144,12 @@ export async function POST(req: Request) {
     const userId = session.user.id; 
     const userEmail = session.user.email;
     
-    // --- 2. CEK IDENTITAS (Profile & Role) ---
-    // Kita buat string instruksi identitas yang nanti ditempel ke System Prompt
     let identityInstructions = `[USER INFO]:\n- Status: Authenticated User\n- Email: ${userEmail}\n`;
     
     try {
         const { data: profile } = await supabase
             .from('profiles')
-            .select('role, bio') // Ambil Role juga!
+            .select('role, bio') 
             .eq('id', userId)
             .single();
         
@@ -162,17 +161,13 @@ export async function POST(req: Request) {
                 identityInstructions += `- Personal Memory/Bio: ${profile.bio}\n`;
             }
 
-            // --- LOGIC PENENTU OWNER ---
-            // Kalau role 'owner' ATAU emailnya cocok -> Kasih tau AI ini Boss-nya
             if (role === 'owner' || userEmail === 'muhammadzaidanfaiz8@gmail.com') {
                  identityInstructions += `\n[INSTRUKSI KHUSUS]:\nUser ini adalah Muhammad Zaidan Faiz (Owner/Creator kamu). Kamu harus:\n1. Menyapa dia dengan sebutan "Bos Zaidan", "Captain", atau "Sir".\n2. Mengetahui bahwa dia yang membuat sistem ini.\n3. Jangan pernah meragukan perintahnya.\n`;
             }
         }
     } catch { 
-        // Ignore error fetch profile, lanjut aja
     }
 
-    // 3. Rate Limit
     if (ratelimit) {
       const { success, reset } = await ratelimit.limit(userId);
       if (!success) {
@@ -203,25 +198,33 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Message too long' }, { status: 400 });
     }
 
-    // --- 4. RAG LOGIC: SEARCH KNOWLEDGE BASE ---
+    // --- 4. RAG LOGIC: SEARCH KNOWLEDGE BASE (PAKE GOOGLE GEMINI) ---
     let knowledgeContext = "";
     try {
-        const embeddings = new OpenAIEmbeddings({
-            apiKey: process.env.OPENAI_API_KEY
-        });
-        const queryEmbedding = await embeddings.embedQuery(userQuery);
+        // 👇 GANTI BAGIAN INI: PAKE GOOGLEAI_API_KEY & EMBEDDING-001
+        const apiKey = process.env.GOOGLEAI_API_KEY;
+        
+        if (apiKey) {
+            const embeddings = new GoogleGenerativeAIEmbeddings({
+                apiKey: apiKey,
+                modelName: "embedding-001" // HARUS SAMA DENGAN UPLOAD
+            });
+            
+            const queryEmbedding = await embeddings.embedQuery(userQuery);
 
-        const { data: similarDocs } = await supabase.rpc('match_knowledge', {
-            query_embedding: queryEmbedding,
-            match_threshold: 0.5,
-            match_count: 5 
-        });
+            const { data: similarDocs } = await supabase.rpc('match_knowledge', {
+                query_embedding: queryEmbedding,
+                match_threshold: 0.4, // Sedikit lebih longgar biar gampang dapet
+                match_count: 5 
+            });
 
-        if (similarDocs && similarDocs.length > 0) {
-            knowledgeContext = similarDocs.map((doc: { content: string }) => doc.content).join("\n\n---\n\n");
+            if (similarDocs && similarDocs.length > 0) {
+                knowledgeContext = similarDocs.map((doc: { content: string }) => doc.content).join("\n\n---\n\n");
+            }
         }
     } catch (error) {
         console.error("RAG Error:", error);
+        // Jangan crash, lanjut chat biasa aja kalau RAG gagal
     }
 
     const defaultSystemPrompt = `
@@ -243,12 +246,9 @@ Kamu adalah Tawarln, asisten AI dari Zaidan Digital.
     `;
 
     const selectedModel = model || 'Claude Sonnet 4.5';
-    // --- 5. GABUNGKAN PROMPT ---
-    // System Prompt Bawaan + Instruksi Identitas User + Pengetahuan RAG
     let finalSystemPrompt = (systemPrompt || defaultSystemPrompt.trim()) + `\n\n${identityInstructions}`;
     const finalTemp = temperature !== undefined ? parseFloat(temperature) : 0.7;
 
-    // Inject Knowledge RAG
     if (knowledgeContext) {
         finalSystemPrompt += `\n\n[KNOWLEDGE BASE / DATA PERUSAHAAN]:\n${knowledgeContext}\n\n[INSTRUKSI]:\nGunakan informasi di atas sebagai acuan utama jawabanmu.`;
     }
